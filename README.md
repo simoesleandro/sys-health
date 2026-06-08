@@ -1,5 +1,7 @@
 # SYS.HEALTH Web
 
+**English** · [Português (BR)](./README.pt-BR.md)
+
 <p align="center">
   <a href="https://nextjs.org/">
     <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" />
@@ -82,8 +84,8 @@ Web dashboard for **SYS.HEALTH** — a personal health & performance ecosystem. 
 ## Setup
 
 ```bash
-git clone https://github.com/simoesleandro/syshealth-web.git
-cd syshealth-web
+git clone https://github.com/simoesleandro/sys-health.git
+cd sys-health
 npm install
 ```
 
