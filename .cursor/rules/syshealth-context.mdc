@@ -1,0 +1,45 @@
+---
+description: Contexto do projeto SYS.HEALTH — stack, dados, sync e padrões já implementados
+alwaysApply: true
+---
+
+# SYS.HEALTH — Memória do Projeto
+
+## Stack
+- Next.js 16 App Router, TypeScript, Tailwind, shadcn/ui, Supabase
+- Dev: porta **3535** (`npm run build; npm run start`)
+- Design: **Neon Frosted Glass** (fundo escuro, cards `bg-zinc-950/50 backdrop-blur-md`, bordas coloridas + glow suave)
+- Tokens: `lib/neon-theme.ts`, `NEON_CARD_BASE`, gradiente `from-{accent}-950/40 to-zinc-950/80`
+
+## Dados (Supabase)
+- `refeicoes` — refeições e suplementos (fonte: "Suplemento")
+- `medidas` — peso e perímetros (PK: `data`)
+- `amazfit_dados` — Zepp/Amazfit (PK: `data_hora`, formato `YYYY-MM-DD 00:00:00` = **dia BRT**)
+- `hevy_treinos` — musculação Hevy
+
+## Env
+- `ZEPP_APP_TOKEN`, `ZEPP_USER_ID`, `HEVY_API_KEY`
+- `ZEPP_BEARER_TOKEN` opcional (fallback → `ZEPP_APP_TOKEN`)
+
+## Fetch / histórico (`lib/data.ts`)
+- `getWeightHistory()` — **todos** os pesos, sem limite de dias, `order asc`
+- `getMeasurementsHistory()` — desde `2026-04-01`
+- `getBodyCompositionDeltas()` — 2 últimas medidas reais; **sem mocks**
+- Timestamps sem TZ do Supabase → interpretar como **BRT** (`parseBrtDataHoraMs`)
+
+## Sync (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
+- `syncZeppData(day?)` — API `api-mifit-us3.zepp.com`, decode base64 summary, upsert `amazfit_dados`
+- `syncHevyData()` — placeholder ainda não implementado
+- `getZeppRunningSessions()` — corridas reais de `amazfit_dados` onde `corrida_km > 0` (sem mocks)
+- Status header: verde se sync **hoje/ontem BRT** ou dentro de **48h** (`SYNC_FRESHNESS_HOURS`)
+
+## UI já feita
+- Grid suplementos: `components/suplementacao/` — optimistic UI por card; Whey **2x** (`whey-1`, `whey-2`)
+- Bristol evacuação: verde→vermelho (`lib/bristol-theme.ts`); histórico neutro zinc
+- Tendências 14d: `lib/trends.ts`; composição corporal: `components/evolucao/body-composition-table.tsx`
+- **Nunca** importar `lib/data.ts` em Client Components — usar `*-shared.ts` para tipos/helpers
+
+## Padrões
+- Server Components + Server Actions para DB; estado local otimista no cliente
+- BRT: `America/Sao_Paulo` em filtros de "hoje"
+- shadcn/ui para UI; mobile-first

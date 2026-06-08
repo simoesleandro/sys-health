@@ -1,6 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ─── Dependências ───────────────────────────────────────────────
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +10,97 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# ─── Variáveis de ambiente e secrets (NUNCA commitar) ───────────
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
 
-# next.js
+# Chaves, certificados e ficheiros de credenciais
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+service-account*.json
+
+# ─── Next.js / build ────────────────────────────────────────────
 /.next/
 /out/
-
-# production
 /build
+/dist
+.turbo
 
-# misc
-.DS_Store
-*.pem
+# PWA (gerado pelo @ducanh2912/next-pwa em build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
 
-# debug
+# ─── TypeScript ─────────────────────────────────────────────────
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Testes e cobertura ─────────────────────────────────────────
+/coverage
+.nyc_output
+playwright-report/
+test-results/
+
+# ─── Bases de dados locais (legado SQLite / dev) ────────────────
+*.db
+*.sqlite
+*.sqlite3
+nutricao.db
+
+# ─── Supabase CLI (estado local, pode conter refs ao projeto) ───
+.supabase/
+
+# ─── Deploy / hosting ───────────────────────────────────────────
+.vercel
+
+# ─── Logs e debug ───────────────────────────────────────────────
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+.eslintcache
 
-# env files (can opt-in for committing if needed)
-.env*
+# ─── IDE e editores ─────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# vercel
-.vercel
+# ─── Cursor (cache local; rules podem ser versionadas) ──────────
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# ─── Sistema operativo ──────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ─── Temporários / backup ───────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*~
