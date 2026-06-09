@@ -73,7 +73,11 @@ export function MealModalAiPanel({
         }
 
         if (!response.ok) {
-          setError(data.error ?? "Não foi possível analisar o texto.")
+          setError(
+            formatMealAnalysisError(
+              new Error(data.error ?? "Não foi possível analisar o texto.")
+            )
+          )
           return
         }
 
@@ -130,7 +134,11 @@ export function MealModalAiPanel({
         }
 
         if (!response.ok) {
-          setError(data.error ?? "Não foi possível analisar a foto.")
+          setError(
+            formatMealAnalysisError(
+              new Error(data.error ?? "Não foi possível analisar a foto.")
+            )
+          )
           return
         }
 

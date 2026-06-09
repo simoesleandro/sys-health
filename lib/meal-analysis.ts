@@ -1,3 +1,10 @@
+import {
+  extractErrorMessage,
+  formatGeminiCreditsDepletedMessage,
+  isGeminiCreditsDepleted,
+  matchGeminiErrorMessage,
+} from "@/lib/gemini-errors"
+
 export type MealAnalysisItem = {
   nome: string
   qtd: number
@@ -91,27 +98,28 @@ export function parseMealAnalysisResponse(rawText: string): MealAnalysisResult {
 }
 
 export function formatMealAnalysisError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Não foi possível analisar a refeição."
+  const message = extractErrorMessage(error)
 
-  if (
-    message.includes("GEMINI_API_KEY") ||
-    message.includes("API key not valid") ||
-    message.includes("API_KEY_INVALID")
-  ) {
-    return "Análise IA indisponível: configure GEMINI_API_KEY no ambiente."
+  if (isGeminiCreditsDepleted(message)) {
+    return formatGeminiCreditsDepletedMessage("meal")
   }
 
-  if (message.includes("429") || message.toLowerCase().includes("quota")) {
-    return "Limite da API Gemini atingido. Aguarde alguns minutos e tente de novo."
-  }
+  const matched = matchGeminiErrorMessage(message)
+  if (matched) return matched
 
   try {
     const parsed = JSON.parse(message) as { error?: string }
-    if (parsed.error) return parsed.error
+    if (parsed.error) {
+      if (isGeminiCreditsDepleted(parsed.error)) {
+        return formatGeminiCreditsDepletedMessage("meal")
+      }
+      const nested = matchGeminiErrorMessage(parsed.error)
+      if (nested) return nested
+      return parsed.error
+    }
   } catch {
     // ignore
   }
 
-  return message
+  return message || "Não foi possível analisar a refeição."
 }
