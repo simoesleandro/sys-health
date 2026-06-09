@@ -1,45 +1,65 @@
 ---
-description: Contexto do projeto SYS.HEALTH — stack, dados, sync e padrões já implementados
+description: Contexto do projeto SYS.HEALTH — stack, dados, sync, deploy e padrões
 alwaysApply: true
 ---
 
 # SYS.HEALTH — Memória do Projeto
 
+## Repositório e docs
+- **GitHub:** https://github.com/simoesleandro/sys-health
+- **README:** `README.md` (inglês, vitrine) + `README.pt-BR.md` (português)
+- **Guia completo (PT):** `GUIA-DO-PROJETO.md`
+- **Env template:** `.env.example` — **nunca** commitar `.env.local`
+- **`.gitignore`:** `.env*`, `.next/`, secrets, `.supabase/`; permite `.cursor/rules/`
+
 ## Stack
-- Next.js 16 App Router, TypeScript, Tailwind, shadcn/ui, Supabase
-- Dev: porta **3535** (`npm run build; npm run start`)
-- Design: **Neon Frosted Glass** (fundo escuro, cards `bg-zinc-950/50 backdrop-blur-md`, bordas coloridas + glow suave)
-- Tokens: `lib/neon-theme.ts`, `NEON_CARD_BASE`, gradiente `from-{accent}-950/40 to-zinc-950/80`
+- Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, Supabase
+- Dev/prod local: porta **3535** (`npm run dev` / `npm run build; npm run start`)
+- Design: **Neon Frosted Glass** (`lib/neon-theme.ts`, cards `bg-zinc-950/50 backdrop-blur-md`)
+- Deploy: **Vercel** (projeto `sys-health`, preset Next.js, root `./`)
 
 ## Dados (Supabase)
-- `refeicoes` — refeições e suplementos (fonte: "Suplemento")
-- `medidas` — peso e perímetros (PK: `data`)
-- `amazfit_dados` — Zepp/Amazfit (PK: `data_hora`, formato `YYYY-MM-DD 00:00:00` = **dia BRT**)
-- `hevy_treinos` — musculação Hevy
+- `refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`, `alimentos_favoritos`
+- `amazfit_workouts` — treinos Zepp detalhados (PK: `track_id`); migration em `supabase/migrations/20260608_amazfit_workouts.sql`
+- `amazfit_dados` PK: `data_hora` (`YYYY-MM-DD 00:00:00` = dia BRT)
 
-## Env
-- `ZEPP_APP_TOKEN`, `ZEPP_USER_ID`, `HEVY_API_KEY`
-- `ZEPP_BEARER_TOKEN` opcional (fallback → `ZEPP_APP_TOKEN`)
+## Env (local + Vercel)
+**Obrigatórias para dados reais:**
+- `NEXT_PUBLIC_SUPABASE_URL` — formato `https://xxxxxxxx.supabase.co` (URL completa, sem placeholder)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — legacy `eyJ...` (anon) ou nova `sb_publishable_...`
+- `SUPABASE_SERVICE_ROLE_KEY` — legacy `eyJ...` (service_role) ou nova `sb_secret_...` (Supabase → Settings → API Keys → Legacy ou Secret keys)
+
+**Opcionais / integrações:**
+- `ZEPP_APP_TOKEN`, `ZEPP_USER_ID`, `ZEPP_BEARER_TOKEN` (opcional)
+- `HEVY_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`
+
+**Supabase client:** `lib/supabase/server.ts` — valida URL antes de `createClient`; inválida → `null` (evita crash no build Vercel).
+
+## Sync Zepp (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
+- `syncZeppData()` → resumo diário `band_data.json` → `amazfit_dados`
+- Encadeia `syncZeppWorkouts()` → `history.json` → `amazfit_workouts`
+- Botão **Sincronizar:** `components/layout/zepp-sync-button.tsx` (header + aba Cardio)
+- Pace: **ignorar** `avg_pace` da API; calcular `(duracao_minutos * 60) / distancia_km` em `lib/treinos.ts`
+- `syncHevyData()` — placeholder
 
 ## Fetch / histórico (`lib/data.ts`)
-- `getWeightHistory()` — **todos** os pesos, sem limite de dias, `order asc`
+- `getWeightHistory()` — **todo** o histórico de peso, sem filtro de data, paginação 1000
 - `getMeasurementsHistory()` — desde `2026-04-01`
-- `getBodyCompositionDeltas()` — 2 últimas medidas reais; **sem mocks**
-- Timestamps sem TZ do Supabase → interpretar como **BRT** (`parseBrtDataHoraMs`)
-
-## Sync (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
-- `syncZeppData(day?)` — API `api-mifit-us3.zepp.com`, decode base64 summary, upsert `amazfit_dados`
-- `syncHevyData()` — placeholder ainda não implementado
-- `getZeppRunningSessions()` — corridas reais de `amazfit_dados` onde `corrida_km > 0` (sem mocks)
-- Status header: verde se sync **hoje/ontem BRT** ou dentro de **48h** (`SYNC_FRESHNESS_HOURS`)
+- `getZeppRunningSessions()` — prioriza `amazfit_workouts`, fallback `amazfit_dados`
+- Timestamps sem TZ → **BRT** (`parseBrtDataHoraMs`)
+- Status header: verde se sync **hoje/ontem BRT** ou **48h** (`SYNC_FRESHNESS_HOURS`)
 
 ## UI já feita
-- Grid suplementos: `components/suplementacao/` — optimistic UI por card; Whey **2x** (`whey-1`, `whey-2`)
-- Bristol evacuação: verde→vermelho (`lib/bristol-theme.ts`); histórico neutro zinc
-- Tendências 14d: `lib/trends.ts`; composição corporal: `components/evolucao/body-composition-table.tsx`
-- **Nunca** importar `lib/data.ts` em Client Components — usar `*-shared.ts` para tipos/helpers
+- Suplementos: optimistic UI; Whey 2x (`whey-1`, `whey-2`)
+- Bristol evacuação; tendências 14d; composição corporal com deltas reais
+- **Nunca** importar `lib/data.ts` em Client Components — usar `*-shared.ts`
+
+## Deploy Vercel — checklist
+1. Environment Variables: Production + Preview
+2. `NEXT_PUBLIC_SUPABASE_URL` deve ser HTTPS válida (erro comum: URL incompleta → build falha em `/banco-alimentos`)
+3. Após alterar env: **Redeploy**
+4. Conta Vercel pode pedir 2FA — pode **Skip** e configurar depois
 
 ## Padrões
-- Server Components + Server Actions para DB; estado local otimista no cliente
-- BRT: `America/Sao_Paulo` em filtros de "hoje"
-- shadcn/ui para UI; mobile-first
+- Server Components + Server Actions; BRT `America/Sao_Paulo`
+- Commits/README vitrine em **inglês**; docs internas podem ser PT

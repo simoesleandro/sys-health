@@ -25,7 +25,7 @@ export function SupplementSection() {
     <section className="flex flex-col gap-4">
       <SectionHeader
         title="Suplementação"
-        subtitle="Toque no card para marcar como tomado (BRT)"
+        subtitle="Status de hoje — registe pelo botão + Suplementos na barra rápida"
       />
       <Suspense fallback={<SupplementGridSkeleton />}>
         <SupplementGridContent />

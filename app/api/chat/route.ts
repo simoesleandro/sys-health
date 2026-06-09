@@ -24,8 +24,11 @@ export async function POST(req: Request) {
 
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "GEMINI_API_KEY não configurada." }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error:
+          "Coach indisponível: GEMINI_API_KEY não configurada. Adicione a chave na Vercel em Settings → Environment Variables e faça redeploy.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
     )
   }
 

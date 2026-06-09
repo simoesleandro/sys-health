@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { useQuickModals } from "@/components/modals/quick-modals-context"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import { SUPPLEMENT_PRESETS } from "@/lib/supplements"
 import { cn } from "@/lib/utils"
 
 export function SupplementModal() {
+  const router = useRouter()
   const { supplementOpen, setSupplementOpen } = useQuickModals()
   const [selected, setSelected] = React.useState<string[]>([])
   const [error, setError] = React.useState<string | null>(null)
@@ -51,6 +53,7 @@ export function SupplementModal() {
         return
       }
       handleOpenChange(false)
+      router.refresh()
     })
   }
 

@@ -8,6 +8,7 @@ import { Loader2, Send } from "lucide-react"
 import { ChatMessageContent } from "@/components/ia-coach/chat-message-content"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { formatCoachErrorMessage } from "@/lib/coach-errors"
 import { cn } from "@/lib/utils"
 
 function getMessageText(parts: { type: string; text?: string }[]) {
@@ -26,6 +27,7 @@ export function ChatInterface({ className }: { className?: string }) {
   })
 
   const isBusy = status === "submitted" || status === "streaming"
+  const errorMessage = formatCoachErrorMessage(error)
 
   React.useEffect(() => {
     const node = scrollRef.current
@@ -103,10 +105,12 @@ export function ChatInterface({ className }: { className?: string }) {
         ) : null}
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error.message ||
-              "Não foi possível obter resposta do Coach. Tente novamente."}
-          </p>
+          <div
+            className="rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2.5 text-sm text-red-200"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
         ) : null}
       </div>
 

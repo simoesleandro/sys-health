@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/print-lan-url.mjs && next dev -p 3535 -H 0.0.0.0",
+    "dev": "node scripts/print-lan-url.mjs && next dev -p 3535 -H 0.0.0.0 --webpack",
     "build": "next build --webpack",
     "start": "node scripts/print-lan-url.mjs && next start -p 3535 -H 0.0.0.0",
     "firewall:open": "powershell -ExecutionPolicy Bypass -File scripts/open-firewall.ps1",

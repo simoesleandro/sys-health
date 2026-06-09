@@ -493,7 +493,10 @@ function mealMatchesSupplement(
 ) {
   if (meal.descricao === preset.descricao) return true
 
-  return meal.componentes.some((component) => component.nome === preset.label)
+  return meal.componentes.some(
+    (component) =>
+      component.nome === preset.label || component.nome === preset.descricao
+  )
 }
 
 function assignLegacyWheySlot(
