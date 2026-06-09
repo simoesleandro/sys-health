@@ -23,22 +23,26 @@ export async function createMeal(data: CreateMealInput) {
   }
 
   try {
-    const { error } = await supabase.from("refeicoes").insert({
-      categoria: data.categoria,
-      descricao: data.descricao,
-      calorias: data.calorias,
-      proteinas: data.proteinas,
-      carboidratos: data.carboidratos,
-      gorduras: data.gorduras,
-      componentes_json: JSON.stringify(data.componentes),
-      data_hora: new Date().toISOString(),
-    })
+    const { data: row, error } = await supabase
+      .from("refeicoes")
+      .insert({
+        categoria: data.categoria,
+        descricao: data.descricao,
+        calorias: data.calorias,
+        proteinas: data.proteinas,
+        carboidratos: data.carboidratos,
+        gorduras: data.gorduras,
+        componentes_json: JSON.stringify(data.componentes),
+        data_hora: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
 
     if (error) throw error
 
     revalidateMealPaths()
 
-    return { success: true as const }
+    return { success: true as const, id: Number(row.id) }
   } catch (error) {
     console.error("[createMeal]", error)
     return {

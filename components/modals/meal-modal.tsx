@@ -22,14 +22,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  MealModalAiPanel,
+  type MealAiAnalysisMeta,
+} from "@/components/modals/meal-modal-ai-panel"
 import { useMealModal, useQuickModals } from "@/components/modals/quick-modals-context"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createFood, searchFoods } from "@/lib/actions/foods"
+import { logMealAnalysis } from "@/lib/actions/meal-analysis"
 import { createMeal } from "@/lib/actions/meals"
+import type { MealAnalysisItem } from "@/lib/meal-analysis"
 import type { FoodFormInput } from "@/lib/foods"
 import {
   type CartItem,
   type FoodSearchResult,
   MEAL_CATEGORIES,
+  aiItemToCartItem,
   cartToComponentes,
   foodToCartItem,
   suggestMealCategoryByHour,
@@ -61,6 +69,8 @@ function resetModalState(
     setError: (v: string | null) => void
     setShowInlineCreate: (v: boolean) => void
     setInlineForm: (v: FoodFormInput) => void
+    setActiveTab: (v: "manual" | "text" | "photo") => void
+    setPendingAnalysis: (v: PendingMealAnalysis | null) => void
   }
 ) {
   setters.setQuery("")
@@ -72,6 +82,12 @@ function resetModalState(
   setters.setError(null)
   setters.setShowInlineCreate(false)
   setters.setInlineForm(EMPTY_INLINE_FORM)
+  setters.setActiveTab("manual")
+  setters.setPendingAnalysis(null)
+}
+
+type PendingMealAnalysis = MealAiAnalysisMeta & {
+  itens: MealAnalysisItem[]
 }
 
 function isSupplementCartItem(item: CartItem) {
@@ -99,6 +115,11 @@ export function MealModal() {
     React.useState<FoodFormInput>(EMPTY_INLINE_FORM)
   const [isCreatingFood, startCreateFoodTransition] = React.useTransition()
   const [isSaving, startSaveTransition] = React.useTransition()
+  const [activeTab, setActiveTab] = React.useState<"manual" | "text" | "photo">(
+    "manual"
+  )
+  const [pendingAnalysis, setPendingAnalysis] =
+    React.useState<PendingMealAnalysis | null>(null)
 
   const trimmedQuery = query.trim()
   const showEmptySearchHint =
@@ -142,6 +163,8 @@ export function MealModal() {
         setError,
         setShowInlineCreate,
         setInlineForm,
+        setActiveTab,
+        setPendingAnalysis,
       })
     } else {
       setCategory(suggestMealCategoryByHour())
@@ -203,6 +226,19 @@ export function MealModal() {
     setError(null)
   }
 
+  function handleAddAiItems(payload: {
+    items: MealAnalysisItem[]
+    meta: MealAiAnalysisMeta
+  }) {
+    setCart((prev) => [...prev, ...payload.items.map(aiItemToCartItem)])
+    setPendingAnalysis({
+      ...payload.meta,
+      itens: payload.items,
+    })
+    setActiveTab("manual")
+    setError(null)
+  }
+
   function handleCreateInlineFood() {
     startCreateFoodTransition(async () => {
       const result = await createFood(inlineForm)
@@ -257,6 +293,17 @@ export function MealModal() {
         return
       }
 
+      if (pendingAnalysis) {
+        await logMealAnalysis({
+          tipo: pendingAnalysis.tipo,
+          entradaTexto: pendingAnalysis.entradaTexto,
+          imagemNome: pendingAnalysis.imagemNome,
+          respostaBruta: pendingAnalysis.raw,
+          itens: pendingAnalysis.itens,
+          refeicaoId: result.id,
+        })
+      }
+
       handleOpenChange(false)
       router.refresh()
     })
@@ -271,8 +318,7 @@ export function MealModal() {
         <DialogHeader className="shrink-0 border-b px-4 py-4">
           <DialogTitle>Nova refeição</DialogTitle>
           <DialogDescription>
-            Busque ou crie alimentos, adicione suplementos opcionais e salve a
-            refeição.
+            Manual, texto IA ou foto — monte o carrinho, ajuste macros e salve.
           </DialogDescription>
 
           <div className="pt-2">
@@ -295,6 +341,25 @@ export function MealModal() {
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as "manual" | "text" | "photo")
+            }
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="manual" className="flex-1">
+                Manual
+              </TabsTrigger>
+              <TabsTrigger value="text" className="flex-1">
+                Texto IA
+              </TabsTrigger>
+              <TabsTrigger value="photo" className="flex-1">
+                Foto IA
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="manual" className="mt-4">
           <section className="flex flex-col gap-2">
             <Label htmlFor="food-search">Buscar alimento</Label>
             <Input
@@ -521,6 +586,16 @@ export function MealModal() {
               </div>
             )}
           </section>
+            </TabsContent>
+
+            <TabsContent value="text" className="mt-4">
+              <MealModalAiPanel mode="text" onAddItems={handleAddAiItems} />
+            </TabsContent>
+
+            <TabsContent value="photo" className="mt-4">
+              <MealModalAiPanel mode="photo" onAddItems={handleAddAiItems} />
+            </TabsContent>
+          </Tabs>
 
           {supplementPresets.length > 0 && (
             <section className="flex flex-col gap-2">
