@@ -165,6 +165,28 @@ export function suggestMealCategoryByHour(date = new Date()): MealCategory {
   return "Lanche da Noite"
 }
 
+export function supplementToCartItem(preset: {
+  id: string
+  label: string
+  calorias: number
+  proteinas: number
+  carboidratos: number
+  gorduras: number
+}): CartItem {
+  return {
+    uid: `supp-${preset.id}`,
+    bancoId: 0,
+    nome: preset.label,
+    qtd: 1,
+    unidade: "dose",
+    qtdRef: 1,
+    kcalRef: preset.calorias,
+    protRef: preset.proteinas,
+    carbRef: preset.carboidratos,
+    gordRef: preset.gorduras,
+  }
+}
+
 export function foodToCartItem(food: FoodSearchResult, qtd: number): CartItem {
   return {
     uid: `${food.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

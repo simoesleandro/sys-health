@@ -22,8 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { searchFoods } from "@/lib/actions/foods"
+import { useMealModal, useQuickModals } from "@/components/modals/quick-modals-context"
+import { createFood, searchFoods } from "@/lib/actions/foods"
 import { createMeal } from "@/lib/actions/meals"
+import type { FoodFormInput } from "@/lib/foods"
 import {
   type CartItem,
   type FoodSearchResult,
@@ -32,8 +34,21 @@ import {
   foodToCartItem,
   suggestMealCategoryByHour,
   sumCartMacros,
+  supplementToCartItem,
 } from "@/lib/meals"
-import { useMealModal } from "@/components/modals/quick-modals-context"
+import type { SupplementPreset } from "@/lib/supplements"
+import { cn } from "@/lib/utils"
+
+const EMPTY_INLINE_FORM: FoodFormInput = {
+  descricao: "",
+  categoria: "Lanche",
+  calorias: 0,
+  proteinas: 0,
+  carboidratos: 0,
+  gorduras: 0,
+  qtdReferencia: 100,
+  unidadeReferencia: "g",
+}
 
 function resetModalState(
   setters: {
@@ -44,6 +59,8 @@ function resetModalState(
     setPendingQtd: (v: string) => void
     setCategory: (v: string) => void
     setError: (v: string | null) => void
+    setShowInlineCreate: (v: boolean) => void
+    setInlineForm: (v: FoodFormInput) => void
   }
 ) {
   setters.setQuery("")
@@ -53,11 +70,18 @@ function resetModalState(
   setters.setPendingQtd("")
   setters.setCategory(suggestMealCategoryByHour())
   setters.setError(null)
+  setters.setShowInlineCreate(false)
+  setters.setInlineForm(EMPTY_INLINE_FORM)
+}
+
+function isSupplementCartItem(item: CartItem) {
+  return item.uid.startsWith("supp-")
 }
 
 export function MealModal() {
   const router = useRouter()
   const { open, setOpen } = useMealModal()
+  const { supplementPresets } = useQuickModals()
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
@@ -70,7 +94,18 @@ export function MealModal() {
     suggestMealCategoryByHour()
   )
   const [error, setError] = React.useState<string | null>(null)
+  const [showInlineCreate, setShowInlineCreate] = React.useState(false)
+  const [inlineForm, setInlineForm] =
+    React.useState<FoodFormInput>(EMPTY_INLINE_FORM)
+  const [isCreatingFood, startCreateFoodTransition] = React.useTransition()
   const [isSaving, startSaveTransition] = React.useTransition()
+
+  const trimmedQuery = query.trim()
+  const showEmptySearchHint =
+    !isSearching &&
+    trimmedQuery.length >= 2 &&
+    results.length === 0 &&
+    !pendingFood
 
   const totals = React.useMemo(() => sumCartMacros(cart), [cart])
 
@@ -105,6 +140,8 @@ export function MealModal() {
         setPendingQtd,
         setCategory,
         setError,
+        setShowInlineCreate,
+        setInlineForm,
       })
     } else {
       setCategory(suggestMealCategoryByHour())
@@ -136,6 +173,52 @@ export function MealModal() {
 
   function handleRemoveFromCart(uid: string) {
     setCart((prev) => prev.filter((item) => item.uid !== uid))
+  }
+
+  function toggleSupplement(preset: SupplementPreset) {
+    const uid = `supp-${preset.id}`
+    setCart((prev) => {
+      if (prev.some((item) => item.uid === uid)) {
+        return prev.filter((item) => item.uid !== uid)
+      }
+      return [...prev, supplementToCartItem(preset)]
+    })
+    setError(null)
+  }
+
+  function openInlineCreate() {
+    setShowInlineCreate(true)
+    setInlineForm({
+      ...EMPTY_INLINE_FORM,
+      descricao: trimmedQuery,
+    })
+    setError(null)
+  }
+
+  function updateInlineField<K extends keyof FoodFormInput>(
+    key: K,
+    value: FoodFormInput[K]
+  ) {
+    setInlineForm((current) => ({ ...current, [key]: value }))
+    setError(null)
+  }
+
+  function handleCreateInlineFood() {
+    startCreateFoodTransition(async () => {
+      const result = await createFood(inlineForm)
+      if (!result.success) {
+        setError(result.error)
+        return
+      }
+
+      const qtd = inlineForm.qtdReferencia
+      setCart((prev) => [...prev, foodToCartItem(result.food, qtd)])
+      setShowInlineCreate(false)
+      setInlineForm(EMPTY_INLINE_FORM)
+      setQuery("")
+      setResults([])
+      setError(null)
+    })
   }
 
   function handleUpdateCartQtd(uid: string, value: string) {
@@ -188,7 +271,8 @@ export function MealModal() {
         <DialogHeader className="shrink-0 border-b px-4 py-4">
           <DialogTitle>Nova refeição</DialogTitle>
           <DialogDescription>
-            Busque alimentos, monte o carrinho e salve a refeição.
+            Busque ou crie alimentos, adicione suplementos opcionais e salve a
+            refeição.
           </DialogDescription>
 
           <div className="pt-2">
@@ -248,6 +332,157 @@ export function MealModal() {
               </ul>
             )}
 
+            {showEmptySearchHint && !showInlineCreate && (
+              <div className="rounded-lg border border-dashed border-border px-3 py-3">
+                <p className="text-sm text-muted-foreground">
+                  Não encontrou &ldquo;{trimmedQuery}&rdquo;?
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={openInlineCreate}
+                >
+                  <Plus className="size-4" />
+                  Criar alimento no banco
+                </Button>
+              </div>
+            )}
+
+            {showInlineCreate && (
+              <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+                <p className="text-sm font-medium">Novo alimento</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="inline-descricao">Nome</Label>
+                    <Input
+                      id="inline-descricao"
+                      value={inlineForm.descricao}
+                      onChange={(event) =>
+                        updateInlineField("descricao", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-qtd">Porção de referência</Label>
+                    <Input
+                      id="inline-qtd"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={inlineForm.qtdReferencia}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "qtdReferencia",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-unidade">Unidade</Label>
+                    <Input
+                      id="inline-unidade"
+                      value={inlineForm.unidadeReferencia}
+                      onChange={(event) =>
+                        updateInlineField("unidadeReferencia", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-kcal">Calorias</Label>
+                    <Input
+                      id="inline-kcal"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={inlineForm.calorias}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "calorias",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-prot">Proteína (g)</Label>
+                    <Input
+                      id="inline-prot"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={inlineForm.proteinas}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "proteinas",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-carb">Carboidrato (g)</Label>
+                    <Input
+                      id="inline-carb"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={inlineForm.carboidratos}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "carboidratos",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-gord">Gordura (g)</Label>
+                    <Input
+                      id="inline-gord"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={inlineForm.gorduras}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "gorduras",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreateInlineFood}
+                    disabled={isCreatingFood}
+                  >
+                    {isCreatingFood ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      "Criar e adicionar ao carrinho"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowInlineCreate(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {pendingFood && (
               <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
                 <p className="text-sm font-medium">{pendingFood.descricao}</p>
@@ -287,6 +522,41 @@ export function MealModal() {
             )}
           </section>
 
+          {supplementPresets.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-medium">Suplementos</h3>
+              <p className="text-xs text-muted-foreground">
+                Opcional — inclua na mesma refeição.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {supplementPresets.map((preset) => {
+                  const isSelected = cart.some(
+                    (item) => item.uid === `supp-${preset.id}`
+                  )
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => toggleSupplement(preset)}
+                      className={cn(
+                        "rounded-lg border px-3 py-3 text-left text-sm transition-colors",
+                        isSelected
+                          ? "border-cyan/50 bg-cyan/10"
+                          : "border-border hover:bg-muted/50"
+                      )}
+                    >
+                      <p className="font-medium">{preset.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {Math.round(preset.calorias)} kcal · P{" "}
+                        {Math.round(preset.proteinas)}g
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
           <section className="flex min-h-0 flex-1 flex-col gap-2">
             <h3 className="text-sm font-medium">Carrinho</h3>
 
@@ -304,19 +574,25 @@ export function MealModal() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{item.nome}</p>
                     </div>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      className="h-8 w-20"
-                      value={item.qtd}
-                      onChange={(event) =>
-                        handleUpdateCartQtd(item.uid, event.target.value)
-                      }
-                    />
-                    <span className="w-6 text-xs text-muted-foreground">
-                      {item.unidade}
-                    </span>
+                    {isSupplementCartItem(item) ? (
+                      <span className="text-xs text-muted-foreground">1 dose</span>
+                    ) : (
+                      <>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="h-8 w-20"
+                          value={item.qtd}
+                          onChange={(event) =>
+                            handleUpdateCartQtd(item.uid, event.target.value)
+                          }
+                        />
+                        <span className="w-6 text-xs text-muted-foreground">
+                          {item.unidade}
+                        </span>
+                      </>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"

@@ -103,15 +103,34 @@ export async function createFood(data: FoodFormInput) {
   }
 
   try {
-    const { error } = await supabase.from("alimentos_favoritos").insert({
-      ...validation.value,
-      vezes_usado: 0,
-    })
+    const { data, error } = await supabase
+      .from("alimentos_favoritos")
+      .insert({
+        ...validation.value,
+        vezes_usado: 0,
+      })
+      .select(
+        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+      )
+      .single()
 
     if (error) throw error
 
     revalidateFoodPaths()
-    return { success: true as const }
+    return {
+      success: true as const,
+      food: {
+        id: Number(data.id),
+        descricao: String(data.descricao ?? ""),
+        categoria: String(data.categoria ?? "Lanche"),
+        calorias: Number(data.calorias ?? 0),
+        proteinas: Number(data.proteinas ?? 0),
+        carboidratos: Number(data.carboidratos ?? 0),
+        gorduras: Number(data.gorduras ?? 0),
+        qtdReferencia: Number(data.qtd_referencia ?? 100),
+        unidadeReferencia: String(data.unidade_referencia ?? "g"),
+      } satisfies FoodSearchResult,
+    }
   } catch (error) {
     console.error("[createFood]", error)
     return {
