@@ -7,6 +7,7 @@ import {
   LineChart,
   Pill,
   Ruler,
+  Settings,
   Star,
   TrendingUp,
   UtensilsCrossed,
@@ -42,6 +43,13 @@ export const mainNavItems: NavItem[] = [
   { title: "Evacuação", href: "/evacuacao", icon: Activity, accent: "green" },
   { title: "IA Coach", href: "/ia-coach", icon: Brain, accent: "cyan" },
 ]
+
+export const settingsNavItem: NavItem = {
+  title: "Configurações",
+  href: "/configuracoes",
+  icon: Settings,
+  accent: "blue",
+}
 
 export const bancoNavItem: NavItem = {
   title: "Banco de Alimentos",

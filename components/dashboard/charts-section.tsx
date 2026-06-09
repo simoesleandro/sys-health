@@ -6,14 +6,16 @@ import {
   getWearableTrends14Days,
   getWeightHistory,
 } from "@/lib/data"
+import { getUserNutritionGoals } from "@/lib/user-settings"
 
 export async function ChartsSection({ showHeader = true }: { showHeader?: boolean }) {
-  const [weightHistory, wearableData, nutrition, bodyComposition] =
+  const [weightHistory, wearableData, nutrition, bodyComposition, goals] =
     await Promise.all([
       getWeightHistory(),
       getWearableTrends14Days(),
       getTodayNutritionTotals(),
       getBodyCompositionDeltas(),
+      getUserNutritionGoals(),
     ])
 
   return (
@@ -35,6 +37,7 @@ export async function ChartsSection({ showHeader = true }: { showHeader?: boolea
           carboidratos: nutrition.carboidratos,
           gorduras: nutrition.gorduras,
         }}
+        goals={goals}
       />
     </section>
   )

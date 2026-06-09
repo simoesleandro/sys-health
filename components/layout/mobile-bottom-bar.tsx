@@ -22,6 +22,7 @@ import {
   mainNavItems,
   mobilePrimaryNav,
   quickActions,
+  settingsNavItem,
 } from "@/lib/navigation"
 import { NavLink } from "@/components/layout/nav-link"
 
@@ -44,7 +45,7 @@ export function MobileBottomBar() {
     if (dialog === "banco") window.location.href = bancoNavItem.href
   }
 
-  const overflowActive = mainNavItems
+  const overflowActive = [...mainNavItems, settingsNavItem, bancoNavItem]
     .filter((item) => !item.mobilePrimary)
     .some(
       (item) =>
@@ -117,6 +118,7 @@ export function MobileBottomBar() {
                 .map((item) => (
                   <NavLink key={item.href} item={item} />
                 ))}
+              <NavLink item={settingsNavItem} />
               <NavLink item={bancoNavItem} />
             </div>
 

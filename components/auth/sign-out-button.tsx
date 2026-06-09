@@ -6,7 +6,13 @@ import { useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton({
+  className,
+  compact = false,
+}: {
+  className?: string
+  compact?: boolean
+}) {
   const [isPending, startTransition] = useTransition()
 
   return (
@@ -19,7 +25,7 @@ export function SignOutButton({ className }: { className?: string }) {
       onClick={() => startTransition(() => signOut())}
     >
       <LogOut className="size-3.5" />
-      {isPending ? "Saindo…" : "Sair"}
+      {!compact ? (isPending ? "Saindo…" : "Sair") : null}
     </Button>
   )
 }

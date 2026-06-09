@@ -21,7 +21,7 @@ export type VisualSupplement = {
   gorduras: number
 }
 
-const WHEY_MACROS = {
+export const WHEY_MACROS = {
   label: "Whey Isolado Dux 30g",
   calorias: 118,
   proteinas: 24,
@@ -32,7 +32,7 @@ const WHEY_MACROS = {
 /** Descrição legada (registos anteriores ao split 2x/dia). */
 export const WHEY_LEGACY_DESCRICAO = "Whey Protein Isolado Dux (30g)"
 
-export const VISUAL_SUPPLEMENTS: VisualSupplement[] = [
+export const DEFAULT_VISUAL_SUPPLEMENTS: VisualSupplement[] = [
   {
     id: "whey-1",
     nome: "Whey Protein",
@@ -138,45 +138,8 @@ export type SupplementPreset = Pick<
   | "gorduras"
 >
 
-/** Modal rápido — um preset de whey (registo em lote). */
-export const SUPPLEMENT_PRESETS: SupplementPreset[] = [
-  {
-    id: "whey",
-    label: WHEY_MACROS.label,
-    descricao: WHEY_LEGACY_DESCRICAO,
-    calorias: WHEY_MACROS.calorias,
-    proteinas: WHEY_MACROS.proteinas,
-    carboidratos: WHEY_MACROS.carboidratos,
-    gorduras: WHEY_MACROS.gorduras,
-  },
-  ...VISUAL_SUPPLEMENTS.filter((item) => !item.id.startsWith("whey-")).map(
-    ({ id, label, descricao, calorias, proteinas, carboidratos, gorduras }) => ({
-      id,
-      label,
-      descricao,
-      calorias,
-      proteinas,
-      carboidratos,
-      gorduras,
-    })
-  ),
-]
-
-export function findSupplementById(id: string): SupplementPreset | undefined {
-  const visual = VISUAL_SUPPLEMENTS.find((item) => item.id === id)
-  if (visual) {
-    return {
-      id: visual.id,
-      label: visual.label,
-      descricao: visual.descricao,
-      calorias: visual.calorias,
-      proteinas: visual.proteinas,
-      carboidratos: visual.carboidratos,
-      gorduras: visual.gorduras,
-    }
-  }
-  return SUPPLEMENT_PRESETS.find((item) => item.id === id)
-}
+/** @deprecated Use getUserSupplementPresets() */
+export const VISUAL_SUPPLEMENTS = DEFAULT_VISUAL_SUPPLEMENTS
 
 export type SupplementGridItem = VisualSupplement & {
   isTaken: boolean

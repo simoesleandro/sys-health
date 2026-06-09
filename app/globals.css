@@ -194,4 +194,11 @@
   .neon-metric {
     @apply text-2xl font-bold tracking-tight text-white md:text-3xl;
   }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

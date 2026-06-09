@@ -1,5 +1,5 @@
 import { formatSleepMinutes, type TodayAmazfitData, type TodayNutritionTotals } from "@/lib/data"
-import { NUTRITION_GOALS } from "@/lib/goals"
+import type { NutritionGoals } from "@/lib/goals"
 import type { HevyWorkout, ZeppRunSession } from "@/lib/treinos"
 
 export type CoachEvacuationSummary = {
@@ -83,7 +83,7 @@ export function summarizeActivitiesForDate(
   }
 }
 
-function formatWearableSnapshot(day: CoachDayContext) {
+function formatWearableSnapshot(day: CoachDayContext, goals: NutritionGoals) {
   if (!day.amazfit.synced) {
     return "Wearable: sem sync hoje."
   }
@@ -99,26 +99,30 @@ function formatWearableSnapshot(day: CoachDayContext) {
   }
 
   if (day.amazfit.pai > 0) {
-    parts.push(`PAI ${day.amazfit.pai}/${NUTRITION_GOALS.PAI}`)
+    parts.push(`PAI ${day.amazfit.pai}/${goals.PAI}`)
   }
 
   return `Wearable: ${parts.join(", ")}.`
 }
 
-function formatDaySnapshot(label: string, day: CoachDayContext) {
+function formatDaySnapshot(
+  label: string,
+  day: CoachDayContext,
+  goals: NutritionGoals
+) {
   const activityParts = [day.activities.hevy, day.activities.zepp].filter(
     Boolean
   )
 
   return [
     `${label} (${formatDayLabel(day.date)}):`,
-    `Nutrição — Calorias ${Math.round(day.nutrition.calorias)}/${NUTRITION_GOALS.TMB_KCAL},`,
-    `Proteína ${Math.round(day.nutrition.proteinas)}/${NUTRITION_GOALS.PROTEIN_G}g,`,
-    `Carbo ${Math.round(day.nutrition.carboidratos)}/${NUTRITION_GOALS.CARBS_G}g,`,
-    `Gordura ${Math.round(day.nutrition.gorduras)}/${NUTRITION_GOALS.FATS_G}g,`,
-    `Água ${day.nutrition.aguaLitros.toFixed(1)}/${NUTRITION_GOALS.WATER_L}L.`,
+    `Nutrição — Calorias ${Math.round(day.nutrition.calorias)}/${goals.TMB_KCAL},`,
+    `Proteína ${Math.round(day.nutrition.proteinas)}/${goals.PROTEIN_G}g,`,
+    `Carbo ${Math.round(day.nutrition.carboidratos)}/${goals.CARBS_G}g,`,
+    `Gordura ${Math.round(day.nutrition.gorduras)}/${goals.FATS_G}g,`,
+    `Água ${day.nutrition.aguaLitros.toFixed(1)}/${goals.WATER_L}L.`,
     `Balanço calórico: ${day.balanceLabel}.`,
-    formatWearableSnapshot(day),
+    formatWearableSnapshot(day, goals),
     `Evacuação: ${day.evacuations.count} registo(s) — ${day.evacuations.summary}.`,
     activityParts.length
       ? `Treinos: ${activityParts.join(" | ")}.`
@@ -126,13 +130,16 @@ function formatDaySnapshot(label: string, day: CoachDayContext) {
   ].join(" ")
 }
 
-export function buildCoachSystemPrompt(context: CoachHealthContext) {
+export function buildCoachSystemPrompt(
+  context: CoachHealthContext,
+  goals: NutritionGoals
+) {
   return [
     "Você é o SYS.HEALTH Coach, um assistente de saúde rigoroso, mas empático.",
     "Tem acesso aos dados reais do utilizador em horário de Brasília (BRT) para hoje e ontem.",
     "Inclui nutrição, wearable (passos, sono, HRV, PAI), balanço calórico, evacuação Bristol e treinos Hevy/Zepp.",
-    formatDaySnapshot("Hoje", context.today),
-    formatDaySnapshot("Ontem", context.yesterday),
+    formatDaySnapshot("Hoje", context.today, goals),
+    formatDaySnapshot("Ontem", context.yesterday, goals),
     "Quando o utilizador perguntar por ontem ou comparações, use os dados de ontem acima.",
     "Para datas mais antigas, diga que só tem hoje e ontem neste contexto.",
     "Baseie as respostas nestes dados reais. Não invente valores.",

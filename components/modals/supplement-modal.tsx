@@ -15,12 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { registerSupplements } from "@/lib/actions/supplements"
-import { SUPPLEMENT_PRESETS } from "@/lib/supplements"
 import { cn } from "@/lib/utils"
 
 export function SupplementModal() {
   const router = useRouter()
-  const { supplementOpen, setSupplementOpen } = useQuickModals()
+  const { supplementOpen, setSupplementOpen, supplementPresets } =
+    useQuickModals()
   const [selected, setSelected] = React.useState<string[]>([])
   const [error, setError] = React.useState<string | null>(null)
   const [isPending, startTransition] = React.useTransition()
@@ -72,7 +72,7 @@ export function SupplementModal() {
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {SUPPLEMENT_PRESETS.map((preset) => {
+            {supplementPresets.map((preset) => {
               const isSelected = selected.includes(preset.id)
               return (
                 <button

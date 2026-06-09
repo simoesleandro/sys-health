@@ -14,12 +14,16 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import type { MeasurementInput } from "@/lib/biometry"
+import type { NutritionGoals } from "@/lib/goals"
+import type { SupplementPreset } from "@/lib/supplements"
 
 export function AppShell({
   children,
   kpiSlot,
   amazfitSlot,
   todayMeasurementForm,
+  nutritionGoals,
+  supplementPresets,
   userEmail,
   userInitials,
 }: {
@@ -27,11 +31,17 @@ export function AppShell({
   kpiSlot: React.ReactNode
   amazfitSlot: React.ReactNode
   todayMeasurementForm: MeasurementInput
+  nutritionGoals: NutritionGoals
+  supplementPresets: SupplementPreset[]
   userEmail: string
   userInitials: string
 }) {
   return (
-    <QuickModalsProvider todayMeasurementForm={todayMeasurementForm}>
+    <QuickModalsProvider
+      todayMeasurementForm={todayMeasurementForm}
+      nutritionGoals={nutritionGoals}
+      supplementPresets={supplementPresets}
+    >
       <SidebarProvider defaultOpen>
         <AppSidebar
           kpiSlot={kpiSlot}

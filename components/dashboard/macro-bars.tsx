@@ -1,4 +1,4 @@
-import { NUTRITION_GOALS } from "@/lib/goals"
+import type { NutritionGoals } from "@/lib/goals"
 import { NEON_ACCENTS } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
@@ -44,31 +44,33 @@ export function MacroBars({
   proteinas,
   carboidratos,
   gorduras,
+  goals,
 }: {
   proteinas: number
   carboidratos: number
   gorduras: number
+  goals: NutritionGoals
 }) {
   return (
     <div className="flex flex-col gap-5">
       <MacroBar
         label="Proteínas"
         value={proteinas}
-        goal={NUTRITION_GOALS.PROTEIN_G}
+        goal={goals.PROTEIN_G}
         unit="g"
         accent="cyan"
       />
       <MacroBar
         label="Carboidratos"
         value={carboidratos}
-        goal={NUTRITION_GOALS.CARBS_G}
+        goal={goals.CARBS_G}
         unit="g"
         accent="blue"
       />
       <MacroBar
         label="Gorduras"
         value={gorduras}
-        goal={NUTRITION_GOALS.FATS_G}
+        goal={goals.FATS_G}
         unit="g"
         accent="magenta"
       />

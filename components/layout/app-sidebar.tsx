@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Star } from "lucide-react"
+import { Settings, Star } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -27,6 +27,7 @@ import {
   bancoNavItem,
   mainNavItems,
   quickActions,
+  settingsNavItem,
 } from "@/lib/navigation"
 
 function isNavActive(pathname: string, href: string) {
@@ -54,8 +55,11 @@ export function AppSidebar({
     openEditMealsFlow,
   } = useQuickModals()
   const bancoActive = isNavActive(pathname, bancoNavItem.href)
+  const settingsActive = isNavActive(pathname, settingsNavItem.href)
   const BancoIcon = bancoNavItem.icon
+  const SettingsIcon = settingsNavItem.icon
   const bancoAccent = NAV_ACCENT_CLASSES[bancoNavItem.accent]
+  const settingsAccent = NAV_ACCENT_CLASSES[settingsNavItem.accent]
 
   function handleQuickAction(dialog: string) {
     if (dialog === "refeicao") {
@@ -75,7 +79,7 @@ export function AppSidebar({
     <Sidebar
       collapsible="none"
       variant="sidebar"
-      className="hidden border-zinc-800/60 md:flex"
+      className="hidden overflow-x-hidden border-zinc-800/60 md:flex [&_[data-sidebar=sidebar]]:overflow-x-hidden"
     >
       <SidebarHeader className="border-b border-zinc-800/60 px-4 py-5">
         <Link href="/" className="flex items-baseline gap-0.5">
@@ -88,7 +92,7 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:thin]">
+      <SidebarContent className="no-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1">
         <SidebarGroup className="py-2">
           <SidebarGroupLabel className="neon-label px-3">Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -160,16 +164,16 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="mt-auto flex max-h-[42vh] shrink-0 flex-col gap-3 overflow-y-auto border-t border-zinc-800/60 px-4 pt-3 pb-4 [scrollbar-width:thin]">
-        {amazfitSlot}
+      <SidebarFooter className="mt-auto flex w-full min-w-0 shrink-0 flex-col gap-3 overflow-x-hidden border-t border-zinc-800/60 px-3 pt-3 pb-4">
+        <div className="min-w-0 overflow-hidden">{amazfitSlot}</div>
 
         <div
           className={cn(
-            "flex flex-col gap-3 p-3",
+            "flex min-w-0 flex-col gap-3 overflow-hidden p-3",
             "rounded-xl backdrop-blur-md",
             "bg-gradient-to-b from-cyan-950/40 to-zinc-950/80",
             "border border-cyan-500/45",
-            "shadow-[0_0_15px_rgba(0,212,255,0.12),0_0_30px_rgba(0,212,255,0.06)]"
+            "shadow-[inset_0_1px_0_rgba(0,212,255,0.08)]"
           )}
         >
           <div className="flex items-center gap-3">
@@ -184,8 +188,25 @@ export function AppSidebar({
                 HealthOS Dashboard
               </p>
             </div>
-            <SignOutButton className="h-8 shrink-0 px-2 text-slate-400 hover:text-white" />
+            <SignOutButton
+              compact
+              className="h-8 w-8 shrink-0 px-0 text-slate-400 hover:text-white"
+            />
           </div>
+
+          <Link
+            href={settingsNavItem.href}
+            aria-current={settingsActive ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-sm transition-colors",
+              settingsActive
+                ? cn("border-zinc-800/60 bg-zinc-900/70", settingsAccent.text)
+                : "border-zinc-800/60 text-slate-400 hover:bg-zinc-900/50 hover:text-white"
+            )}
+          >
+            <SettingsIcon className={cn("size-4 shrink-0", settingsAccent.text)} />
+            <span className="truncate">{settingsNavItem.title}</span>
+          </Link>
 
           <Link
             href={bancoNavItem.href}

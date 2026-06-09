@@ -26,6 +26,7 @@ import type {
   WeightHistoryStart,
   WearableTrendPoint,
 } from "@/lib/data"
+import type { NutritionGoals } from "@/lib/goals"
 import { NEON_ACCENTS, type NeonAccent } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
@@ -73,12 +74,14 @@ export function EvolutionCharts({
   wearableData,
   bodyComposition,
   macros,
+  goals,
 }: {
   weightData: WeightHistoryPoint[]
   weightStart: WeightHistoryStart | null
   wearableData: WearableTrendPoint[]
   bodyComposition: BodyCompositionDeltasResult
   macros: Pick<TodayNutritionTotals, "proteinas" | "carboidratos" | "gorduras">
+  goals: NutritionGoals
 }) {
   const hasWeight = weightData.some((point) => point.peso != null)
   const hasHrv = wearableData.some((point) => point.hrv != null && point.hrv > 0)
@@ -173,6 +176,7 @@ export function EvolutionCharts({
           proteinas={macros.proteinas}
           carboidratos={macros.carboidratos}
           gorduras={macros.gorduras}
+          goals={goals}
         />
       </ChartCard>
 

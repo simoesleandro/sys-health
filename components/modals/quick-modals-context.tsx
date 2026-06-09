@@ -4,6 +4,8 @@ import * as React from "react"
 
 import type { MeasurementInput } from "@/lib/biometry"
 import { fetchTodayMealsForPicker } from "@/lib/actions/meals"
+import type { NutritionGoals } from "@/lib/goals"
+import type { SupplementPreset } from "@/lib/supplements"
 
 type QuickModalsContextValue = {
   mealOpen: boolean
@@ -27,6 +29,8 @@ type QuickModalsContextValue = {
   openEditMealsPicker: () => void
   openEditMealsFlow: () => void
   todayMeasurementForm: MeasurementInput
+  nutritionGoals: NutritionGoals
+  supplementPresets: SupplementPreset[]
 }
 
 const QuickModalsContext = React.createContext<QuickModalsContextValue | null>(
@@ -36,9 +40,13 @@ const QuickModalsContext = React.createContext<QuickModalsContextValue | null>(
 export function QuickModalsProvider({
   children,
   todayMeasurementForm,
+  nutritionGoals,
+  supplementPresets,
 }: {
   children: React.ReactNode
   todayMeasurementForm: MeasurementInput
+  nutritionGoals: NutritionGoals
+  supplementPresets: SupplementPreset[]
 }) {
   const [mealOpen, setMealOpen] = React.useState(false)
   const [waterOpen, setWaterOpen] = React.useState(false)
@@ -91,6 +99,8 @@ export function QuickModalsProvider({
       openEditMealsPicker: () => setEditMealsPickerOpen(true),
       openEditMealsFlow,
       todayMeasurementForm,
+      nutritionGoals,
+      supplementPresets,
     }),
     [
       mealOpen,
@@ -104,6 +114,8 @@ export function QuickModalsProvider({
       editMealsPickerOpen,
       openEditMealsFlow,
       todayMeasurementForm,
+      nutritionGoals,
+      supplementPresets,
     ]
   )
 

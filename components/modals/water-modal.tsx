@@ -16,11 +16,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { addWater } from "@/lib/actions/water"
-import { NUTRITION_GOALS } from "@/lib/goals"
 import { WATER_QUICK_VOLUMES_ML } from "@/lib/supplements"
 
 export function WaterModal() {
-  const { waterOpen, setWaterOpen } = useQuickModals()
+  const { waterOpen, setWaterOpen, nutritionGoals } = useQuickModals()
   const [customMl, setCustomMl] = React.useState("300")
   const [error, setError] = React.useState<string | null>(null)
   const [isPending, startTransition] = React.useTransition()
@@ -63,7 +62,7 @@ export function WaterModal() {
         <DialogHeader className="border-b px-4 py-4">
           <DialogTitle>Hidratação</DialogTitle>
           <DialogDescription>
-            Registre o volume consumido. Meta diária: {NUTRITION_GOALS.WATER_L}L.
+            Registre o volume consumido. Meta diária: {nutritionGoals.WATER_L}L.
           </DialogDescription>
         </DialogHeader>
 

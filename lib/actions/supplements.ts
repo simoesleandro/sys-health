@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache"
 
 import { deleteMeal } from "@/lib/actions/meals"
 import { suggestMealCategoryByHour } from "@/lib/meals"
-import { findSupplementById, type SupplementPreset } from "@/lib/supplements"
+import type { SupplementPreset } from "@/lib/supplements"
+import { findUserSupplementById } from "@/lib/user-settings"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 export async function registerSupplements(presetIds: string[]) {
@@ -15,9 +16,12 @@ export async function registerSupplements(presetIds: string[]) {
     }
   }
 
-  const presets = presetIds
-    .map((id) => findSupplementById(id))
-    .filter((item): item is SupplementPreset => item !== undefined)
+  const resolved = await Promise.all(
+    presetIds.map((id) => findUserSupplementById(id))
+  )
+  const presets = resolved.filter(
+    (item): item is SupplementPreset => item !== undefined
+  )
 
   if (!presets.length) {
     return { success: false as const, error: "Suplementos inválidos." }

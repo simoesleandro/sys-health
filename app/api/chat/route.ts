@@ -8,6 +8,7 @@ import {
 import { buildCoachSystemPrompt } from "@/lib/coach"
 import { getCoachHealthContext } from "@/lib/data"
 import { requireAuth } from "@/lib/supabase/auth"
+import { getUserNutritionGoals } from "@/lib/user-settings"
 
 export const maxDuration = 30
 
@@ -43,12 +44,15 @@ export async function POST(req: Request) {
 
   const { messages }: { messages: UIMessage[] } = await req.json()
 
-  const healthContext = await getCoachHealthContext()
+  const [healthContext, goals] = await Promise.all([
+    getCoachHealthContext(),
+    getUserNutritionGoals(),
+  ])
 
   try {
     const result = streamText({
       model: google(GEMINI_MODEL),
-      system: buildCoachSystemPrompt(healthContext),
+      system: buildCoachSystemPrompt(healthContext, goals),
       messages: await convertToModelMessages(messages),
     })
 

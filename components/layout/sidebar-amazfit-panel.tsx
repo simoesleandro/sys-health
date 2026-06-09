@@ -22,7 +22,7 @@ export async function SidebarAmazfitPanel() {
   const amazfit = await getTodayAmazfitData()
 
   return (
-    <NeonCard accent="cyan" className="shrink-0 p-3">
+    <NeonCard accent="cyan" glow={false} className="min-w-0 shrink-0 p-3">
       <p className="neon-label text-brand-cyan">Amazfit hoje</p>
 
       <div className="mt-2 grid grid-cols-2 gap-2">

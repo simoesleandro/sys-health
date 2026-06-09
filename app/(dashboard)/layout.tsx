@@ -9,6 +9,10 @@ import { SidebarKpisSkeleton } from "@/components/layout/sidebar-kpis-skeleton"
 import { EMPTY_MEASUREMENT_INPUT } from "@/lib/biometry"
 import { getTodayMeasurement, measurementToInput } from "@/lib/data"
 import { getOptionalUser } from "@/lib/supabase/auth"
+import {
+  getUserNutritionGoals,
+  getUserSupplementPresets,
+} from "@/lib/user-settings"
 
 export const revalidate = 60
 
@@ -17,10 +21,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [todayMeasurement, { user }] = await Promise.all([
-    getTodayMeasurement(),
-    getOptionalUser(),
-  ])
+  const [todayMeasurement, { user }, nutritionGoals, supplementPresets] =
+    await Promise.all([
+      getTodayMeasurement(),
+      getOptionalUser(),
+      getUserNutritionGoals(),
+      getUserSupplementPresets(),
+    ])
   const todayMeasurementForm = todayMeasurement
     ? measurementToInput(todayMeasurement)
     : EMPTY_MEASUREMENT_INPUT
@@ -35,6 +42,8 @@ export default async function DashboardLayout({
     <AppShell
       userEmail={userEmail}
       userInitials={userInitials}
+      nutritionGoals={nutritionGoals}
+      supplementPresets={supplementPresets}
       todayMeasurementForm={todayMeasurementForm}
       kpiSlot={
         <Suspense fallback={<SidebarKpisSkeleton />}>

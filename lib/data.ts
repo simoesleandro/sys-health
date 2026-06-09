@@ -10,7 +10,7 @@ import {
   type MeasurementRecord,
 } from "@/lib/biometry"
 import type { FavoriteFood } from "@/lib/foods"
-import { NUTRITION_GOALS } from "@/lib/goals"
+import type { NutritionGoals } from "@/lib/goals"
 import {
   getBristolLabel,
   type BristolType,
@@ -40,10 +40,11 @@ import {
 } from "@/lib/supabase/server"
 import { SYNC_FRESHNESS_HOURS } from "@/lib/sync-env"
 import {
-  VISUAL_SUPPLEMENTS,
   WHEY_LEGACY_DESCRICAO,
   type SupplementGridItem,
+  type VisualSupplement,
 } from "@/lib/supplements"
+import { getActiveVisualSupplements, getUserNutritionGoals } from "@/lib/user-settings"
 import {
   formatWorkoutDateLabel,
   mapZeppRunningRow,
@@ -237,16 +238,17 @@ export const getYesterdayAmazfitData = cache(
 )
 
 export const getDayHistorySummary = cache(async (brtDate: string) => {
-  const [nutrition, amazfit] = await Promise.all([
+  const [nutrition, amazfit, goals] = await Promise.all([
     getNutritionTotalsForDate(brtDate),
     getAmazfitDataForDate(brtDate),
+    getUserNutritionGoals(),
   ])
 
   return {
     brtDate,
     nutrition,
     amazfit,
-    kpi: formatKpiValues(nutrition, amazfit),
+    kpi: formatKpiValues(nutrition, amazfit, goals),
     passos: amazfit.synced
       ? amazfit.passos.toLocaleString("pt-BR")
       : "—",
@@ -294,6 +296,7 @@ export const getCoachHealthContext = cache(async () => {
   const yesterdayBounds = getBrtUtcBoundsForOffset(1)
 
   const [
+    goals,
     todayNutrition,
     yesterdayNutrition,
     todayAmazfit,
@@ -303,6 +306,7 @@ export const getCoachHealthContext = cache(async () => {
     recentHevy,
     recentZepp,
   ] = await Promise.all([
+    getUserNutritionGoals(),
     getTodayNutritionTotals(),
     getYesterdayNutritionTotals(),
     getTodayAmazfitData(),
@@ -330,7 +334,11 @@ export const getCoachHealthContext = cache(async () => {
     date,
     nutrition,
     amazfit,
-    balanceLabel: formatBalance(nutrition.calorias, amazfit.caloriasGastas),
+    balanceLabel: formatBalance(
+      nutrition.calorias,
+      amazfit.caloriasGastas,
+      goals.TMB_KCAL
+    ),
     evacuations: summarizeEvacuations(evacuations),
     activities: summarizeActivitiesForDate(date, recentHevy, recentZepp),
   })
@@ -354,20 +362,18 @@ export const getCoachHealthContext = cache(async () => {
 /** Saldo = TMB + calorias ativas (Amazfit) − calorias consumidas (nutrição). */
 export function calculateBalance(
   caloriasConsumidas: number,
-  caloriasAmazfit: number
+  caloriasAmazfit: number,
+  tmbKcal: number
 ) {
-  return (
-    NUTRITION_GOALS.TMB_KCAL +
-    caloriasAmazfit -
-    Math.round(caloriasConsumidas)
-  )
+  return tmbKcal + caloriasAmazfit - Math.round(caloriasConsumidas)
 }
 
 export function formatBalance(
   caloriasConsumidas: number,
-  caloriasAmazfit: number
+  caloriasAmazfit: number,
+  tmbKcal: number
 ) {
-  const saldo = calculateBalance(caloriasConsumidas, caloriasAmazfit)
+  const saldo = calculateBalance(caloriasConsumidas, caloriasAmazfit, tmbKcal)
 
   if (saldo > 0) {
     return `Déficit ${saldo.toLocaleString("pt-BR")}`
@@ -386,13 +392,14 @@ export function formatSleepMinutes(minutes: number) {
 
 export function formatKpiValues(
   totals: TodayNutritionTotals,
-  amazfit: TodayAmazfitData
+  amazfit: TodayAmazfitData,
+  goals: NutritionGoals
 ) {
   return {
-    calorias: `${Math.round(totals.calorias).toLocaleString("pt-BR")} / ${NUTRITION_GOALS.TMB_KCAL.toLocaleString("pt-BR")}`,
-    proteina: `${Math.round(totals.proteinas)}g / ${NUTRITION_GOALS.PROTEIN_G}g`,
-    agua: `${totals.aguaLitros.toFixed(1)}L / ${NUTRITION_GOALS.WATER_L}L`,
-    balanco: formatBalance(totals.calorias, amazfit.caloriasGastas),
+    calorias: `${Math.round(totals.calorias).toLocaleString("pt-BR")} / ${goals.TMB_KCAL.toLocaleString("pt-BR")}`,
+    proteina: `${Math.round(totals.proteinas)}g / ${goals.PROTEIN_G}g`,
+    agua: `${totals.aguaLitros.toFixed(1)}L / ${goals.WATER_L}L`,
+    balanco: formatBalance(totals.calorias, amazfit.caloriasGastas, goals.TMB_KCAL),
   }
 }
 
@@ -445,10 +452,7 @@ export const getTodayMeals = cache(async (): Promise<TodayMeal[]> => {
   }
 })
 
-function mealMatchesSupplement(
-  meal: TodayMeal,
-  preset: (typeof VISUAL_SUPPLEMENTS)[number]
-) {
+function mealMatchesSupplement(meal: TodayMeal, preset: VisualSupplement) {
   if (meal.descricao === preset.descricao) return true
 
   return meal.componentes.some(
@@ -471,7 +475,10 @@ function assignLegacyWheySlot(
 }
 
 export const getTodaySupplementGrid = cache(async () => {
-  const meals = await getTodayMeals()
+  const [meals, visualSupplements] = await Promise.all([
+    getTodayMeals(),
+    getActiveVisualSupplements(),
+  ])
   const takenByPresetId = new Map<string, number>()
 
   for (const meal of meals) {
@@ -486,14 +493,14 @@ export const getTodaySupplementGrid = cache(async () => {
       continue
     }
 
-    for (const preset of VISUAL_SUPPLEMENTS) {
+    for (const preset of visualSupplements) {
       if (takenByPresetId.has(preset.id)) continue
       if (!mealMatchesSupplement(meal, preset)) continue
       takenByPresetId.set(preset.id, meal.id)
     }
   }
 
-  return VISUAL_SUPPLEMENTS.map(
+  return visualSupplements.map(
     (preset): SupplementGridItem => ({
       ...preset,
       isTaken: takenByPresetId.has(preset.id),
