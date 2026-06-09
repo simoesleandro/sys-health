@@ -1191,6 +1191,40 @@ async function fetchTodayMedicationLogIds(
   return takenByMedicationId
 }
 
+export const getEvacuationHistory = cache(
+  async (limit = 200): Promise<EvacuationRecord[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    try {
+      const { data, error } = await supabase
+        .from("evacuacoes")
+        .select("id, data_hora, observacao, esforco")
+        .order("data_hora", { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => {
+        const tipo = Number(row.esforco ?? 0)
+        const dataHora = String(row.data_hora ?? "")
+
+        return {
+          id: Number(row.id),
+          dataHora,
+          horaLabel: formatMealTimeBrt(dataHora),
+          tipo: tipo as BristolType,
+          tipoLabel: getBristolLabel(tipo),
+          observacao: row.observacao == null ? null : String(row.observacao),
+        }
+      })
+    } catch (error) {
+      console.error("[getEvacuationHistory]", error)
+      return []
+    }
+  }
+)
+
 export const getTodayEvacuations = cache(
   async (): Promise<EvacuationRecord[]> => {
     const supabase = await createServerSupabase()

@@ -41,7 +41,7 @@ export async function registerEvacuation(
     console.error("[registerEvacuation]", error)
     return {
       success: false as const,
-      error: "Não foi possível registar a evacuação.",
+      error: "Não foi possível registrar a evacuação.",
     }
   }
 }

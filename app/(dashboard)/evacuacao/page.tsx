@@ -1,23 +1,25 @@
-import { BristolSelector } from "@/components/evacuacao/bristol-selector"
-import { TodayEvacuationHistory } from "@/components/evacuacao/today-evacuation-history"
+import { EvacuationActions } from "@/components/evacuacao/evacuation-actions"
+import { EvacuationSummaryBar } from "@/components/evacuacao/evacuation-summary-bar"
 import { PageHeader } from "@/components/layout/page-header"
 import { PageShell } from "@/components/layout/page-shell"
-import { getTodayEvacuations } from "@/lib/data"
+import { getEvacuationHistory } from "@/lib/data"
+import { buildEvacuationStats } from "@/lib/evacuation-stats"
 
 export default async function EvacuacaoPage() {
-  const todayRecords = await getTodayEvacuations()
+  const history = await getEvacuationHistory()
+  const stats = buildEvacuationStats(history)
 
   return (
     <PageShell>
       <PageHeader
-        title="Registo Intestinal"
+        title="Registro Intestinal"
         subtitle="Escala de Bristol — selecione o tipo de hoje"
         kicker="SYS.HEALTH"
       />
 
-      <BristolSelector />
+      <EvacuationSummaryBar stats={stats} />
 
-      <TodayEvacuationHistory records={todayRecords} />
+      <EvacuationActions history={history} />
     </PageShell>
   )
 }
