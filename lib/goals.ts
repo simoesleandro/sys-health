@@ -5,4 +5,5 @@ export const NUTRITION_GOALS = {
   CARBS_G: 180,
   FATS_G: 65,
   WATER_L: 3.5,
+  PAI: 100,
 } as const

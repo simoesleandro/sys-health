@@ -273,34 +273,98 @@ export const getDayHistorySummary = cache(async (brtDate: string) => {
   }
 })
 
+async function getEvacuationsForBrtBounds(startIso: string, endIso: string) {
+  const supabase = createServerSupabase()
+  if (!supabase) return []
+
+  try {
+    const { data, error } = await supabase
+      .from("evacuacoes")
+      .select("id, data_hora, observacao, esforco")
+      .gte("data_hora", startIso)
+      .lt("data_hora", endIso)
+      .order("data_hora", { ascending: false })
+
+    if (error) throw error
+
+    return (data ?? []).map((row) => {
+      const tipo = Number(row.esforco ?? 0)
+      const dataHora = String(row.data_hora ?? "")
+
+      return {
+        id: Number(row.id),
+        dataHora,
+        horaLabel: formatMealTimeBrt(dataHora),
+        tipo: tipo as BristolType,
+        tipoLabel: getBristolLabel(tipo),
+        observacao: row.observacao == null ? null : String(row.observacao),
+      }
+    })
+  } catch (error) {
+    console.error("[getEvacuationsForBrtBounds]", error)
+    return []
+  }
+}
+
 export const getCoachHealthContext = cache(async () => {
+  const todayBounds = getBrtTodayUtcBounds()
+  const yesterdayBounds = getBrtUtcBoundsForOffset(1)
+
   const [
     todayNutrition,
     yesterdayNutrition,
     todayAmazfit,
     yesterdayAmazfit,
-    todayBounds,
-    yesterdayBounds,
+    todayEvacuations,
+    yesterdayEvacuations,
+    recentHevy,
+    recentZepp,
   ] = await Promise.all([
     getTodayNutritionTotals(),
     getYesterdayNutritionTotals(),
     getTodayAmazfitData(),
     getYesterdayAmazfitData(),
-    Promise.resolve(getBrtTodayUtcBounds()),
-    Promise.resolve(getBrtUtcBoundsForOffset(1)),
+    getEvacuationsForBrtBounds(todayBounds.startIso, todayBounds.endIso),
+    getEvacuationsForBrtBounds(
+      yesterdayBounds.startIso,
+      yesterdayBounds.endIso
+    ),
+    getRecentHevyWorkouts(8),
+    getZeppRunningSessions(8),
   ])
 
+  const {
+    summarizeActivitiesForDate,
+    summarizeEvacuations,
+  } = await import("@/lib/coach")
+
+  const buildDay = (
+    date: string,
+    nutrition: TodayNutritionTotals,
+    amazfit: TodayAmazfitData,
+    evacuations: Awaited<ReturnType<typeof getEvacuationsForBrtBounds>>
+  ) => ({
+    date,
+    nutrition,
+    amazfit,
+    balanceLabel: formatBalance(nutrition.calorias, amazfit.caloriasGastas),
+    evacuations: summarizeEvacuations(evacuations),
+    activities: summarizeActivitiesForDate(date, recentHevy, recentZepp),
+  })
+
   return {
-    today: {
-      date: todayBounds.brtDate,
-      nutrition: todayNutrition,
-      amazfit: todayAmazfit,
-    },
-    yesterday: {
-      date: yesterdayBounds.brtDate,
-      nutrition: yesterdayNutrition,
-      amazfit: yesterdayAmazfit,
-    },
+    today: buildDay(
+      todayBounds.brtDate,
+      todayNutrition,
+      todayAmazfit,
+      todayEvacuations
+    ),
+    yesterday: buildDay(
+      yesterdayBounds.brtDate,
+      yesterdayNutrition,
+      yesterdayAmazfit,
+      yesterdayEvacuations
+    ),
   }
 })
 

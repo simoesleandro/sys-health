@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
 
 import { FoodFormModal } from "@/components/foods/food-form-modal"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PageHeader } from "@/components/layout/page-header"
+import { Input } from "@/components/ui/input"
 import { NeonCard } from "@/components/ui/neon-card"
 import { deleteFood } from "@/lib/actions/foods"
 import {
@@ -29,8 +30,17 @@ import {
   type FavoriteFood,
 } from "@/lib/foods"
 
+function normalizeSearchTerm(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+}
+
 export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   const router = useRouter()
+  const [search, setSearch] = React.useState("")
   const [modalOpen, setModalOpen] = React.useState(false)
   const [editingFood, setEditingFood] = React.useState<FavoriteFood | null>(
     null
@@ -50,6 +60,15 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   function handleSaved() {
     router.refresh()
   }
+
+  const filteredFoods = React.useMemo(() => {
+    const term = normalizeSearchTerm(search)
+    if (!term) return foods
+
+    return foods.filter((food) =>
+      normalizeSearchTerm(food.descricao).includes(term)
+    )
+  }, [foods, search])
 
   function handleDelete(food: FavoriteFood) {
     if (
@@ -86,10 +105,27 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
       </PageHeader>
 
       <NeonCard accent="orange" className="overflow-hidden">
+        <div className="border-b border-zinc-800/50 px-4 py-3">
+          <div className="relative max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar alimento por nome…"
+              className="pl-9"
+              aria-label="Buscar alimento"
+            />
+          </div>
+        </div>
+
         {foods.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
             Nenhum alimento cadastrado. Clique em &quot;Adicionar Alimento&quot;
             para começar.
+          </p>
+        ) : filteredFoods.length === 0 ? (
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            Nenhum alimento encontrado para &quot;{search.trim()}&quot;.
           </p>
         ) : (
           <Table>
@@ -105,7 +141,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {foods.map((food) => (
+              {filteredFoods.map((food) => (
                 <TableRow key={food.id}>
                   <TableCell className="max-w-[200px] truncate font-medium">
                     {food.descricao}
@@ -134,7 +170,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        className="hidden text-muted-foreground hover:text-foreground sm:inline-flex"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={() => openEditModal(food)}
                         aria-label={`Editar ${food.descricao}`}
                       >
@@ -144,7 +180,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        className="hidden text-muted-foreground hover:text-destructive sm:inline-flex"
+                        className="text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(food)}
                         disabled={isDeleting}
                         aria-label={`Apagar ${food.descricao}`}
