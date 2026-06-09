@@ -28,11 +28,172 @@ export function decodeZeppSummary(summaryB64: string): Record<string, unknown> {
   }
 }
 
+export type ZeppHrvPaiSnapshot = {
+  hrv_ms: number | null
+  pai: number | null
+}
+
+export type ZeppUserEventItem = Record<string, unknown>
+
+function parseZeppEventNumber(value: unknown) {
+  if (value == null || value === "") return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function getBrtDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(date)
+}
+
+function brtDateFromEventMs(ms: number) {
+  return getBrtDateString(new Date(ms))
+}
+
+/** Limites UTC (ms) do dia civil em America/Sao_Paulo. */
+export function getBrtDayBoundsMs(dayString: string) {
+  const start = new Date(`${dayString}T00:00:00-03:00`).getTime()
+  const end = new Date(`${dayString}T23:59:59.999-03:00`).getTime()
+  return { start, end }
+}
+
+export function getBrtDayBoundsMsWithLookback(
+  dayString: string,
+  daysBack = 7
+) {
+  const { end } = getBrtDayBoundsMs(dayString)
+  const start =
+    new Date(`${dayString}T00:00:00-03:00`).getTime() -
+    daysBack * 24 * 60 * 60 * 1000
+
+  return { start, end }
+}
+
+type ReadinessHrvCandidate = {
+  hrv: number
+  updated: number
+  dayFromUpdate: string | null
+  dayFromTimestamp: string | null
+}
+
+function collectReadinessHrvCandidates(
+  items: ZeppUserEventItem[]
+): ReadinessHrvCandidate[] {
+  const candidates: ReadinessHrvCandidate[] = []
+
+  for (const item of items) {
+    if (item.subType === "watch_score_data") continue
+
+    const hrv = parseZeppEventNumber(item.sleepHRV)
+    if (hrv == null || hrv <= 0) continue
+
+    const updated =
+      parseZeppEventNumber(item.timestampUpdate) ??
+      parseZeppEventNumber(item.timestamp) ??
+      0
+    const timestamp = parseZeppEventNumber(item.timestamp) ?? 0
+
+    candidates.push({
+      hrv: Math.round(hrv),
+      updated,
+      dayFromUpdate: updated > 0 ? brtDateFromEventMs(updated) : null,
+      dayFromTimestamp: timestamp > 0 ? brtDateFromEventMs(timestamp) : null,
+    })
+  }
+
+  return candidates
+}
+
+function pickLatestHrvCandidate(candidates: ReadinessHrvCandidate[]) {
+  return [...candidates].sort((a, b) => b.updated - a.updated)[0] ?? null
+}
+
+export function extractHrvMsFromReadinessEvents(
+  items: ZeppUserEventItem[],
+  targetDay: string,
+  options: { allowLatestFallback?: boolean } = {}
+): number | null {
+  const candidates = collectReadinessHrvCandidates(items)
+  if (!candidates.length) return null
+
+  const exactUpdateDay = candidates.filter(
+    (item) => item.dayFromUpdate === targetDay
+  )
+  if (exactUpdateDay.length) {
+    return pickLatestHrvCandidate(exactUpdateDay)?.hrv ?? null
+  }
+
+  const exactTimestampDay = candidates.filter(
+    (item) => item.dayFromTimestamp === targetDay
+  )
+  if (exactTimestampDay.length) {
+    return pickLatestHrvCandidate(exactTimestampDay)?.hrv ?? null
+  }
+
+  if (options.allowLatestFallback) {
+    return pickLatestHrvCandidate(candidates)?.hrv ?? null
+  }
+
+  return null
+}
+
+export function extractPaiFromPaiHealthEvents(
+  items: ZeppUserEventItem[]
+): number | null {
+  let best: { pai: number; updated: number } | null = null
+
+  for (const item of items) {
+    const pai = parseZeppEventNumber(item.totalPai)
+    if (pai == null || pai <= 0) continue
+
+    const updated =
+      parseZeppEventNumber(item.uploadTimestamp) ??
+      parseZeppEventNumber(item.timestamp) ??
+      0
+
+    if (!best || updated >= best.updated) {
+      best = { pai: Math.round(pai), updated }
+    }
+  }
+
+  return best?.pai ?? null
+}
+
+export function resolveZeppHrvPai({
+  fromApi,
+  existing = {},
+}: {
+  fromApi: ZeppHrvPaiSnapshot
+  existing?: { hrv_ms?: number | null; pai?: number | null }
+}) {
+  const hrv_ms =
+    fromApi.hrv_ms != null && fromApi.hrv_ms > 0
+      ? fromApi.hrv_ms
+      : Number(existing.hrv_ms ?? 0) || 0
+
+  const pai =
+    fromApi.pai != null && fromApi.pai > 0
+      ? fromApi.pai
+      : Number(existing.pai ?? 0) || 0
+
+  return { hrv_ms, pai }
+}
+
 export function mapZeppSummaryToRow(
   dayString: string,
   summary: Record<string, unknown>,
-  existing: { hrv_ms?: number | null; pai?: number | null } = {}
+  options: {
+    existing?: { hrv_ms?: number | null; pai?: number | null }
+    hrvMs?: number | null
+    pai?: number | null
+  } = {}
 ): ZeppAmazfitRow {
+  const { existing = {}, hrvMs, pai } = options
+  const resolved = resolveZeppHrvPai({
+    fromApi: { hrv_ms: hrvMs ?? null, pai: pai ?? null },
+    existing,
+  })
   const stp = (summary.stp as Record<string, unknown> | undefined) ?? {}
   const slp = (summary.slp as Record<string, unknown> | undefined) ?? {}
 
@@ -53,8 +214,8 @@ export function mapZeppSummaryToRow(
       Math.round((Number(stp.dis ?? 0) / 1000) * 100) / 100,
     sono_total_min: sleepTotal,
     sono_profundo_min: deep,
-    hrv_ms: Number(existing.hrv_ms ?? 0) || 0,
-    pai: Number(existing.pai ?? 0) || 0,
+    hrv_ms: resolved.hrv_ms,
+    pai: resolved.pai,
     corrida_km: Math.round((runDistM / 1000) * 100) / 100,
     corrida_cal: runCal,
   }
@@ -120,6 +281,74 @@ export async function fetchZeppBandSummary(
 
   const summaryB64 = items[0]?.summary ?? ""
   return decodeZeppSummary(summaryB64)
+}
+
+export async function fetchZeppUserEvents(
+  dayString: string,
+  eventType: string,
+  appToken: string,
+  userId: string,
+  options: { lookbackDays?: number; limit?: number } = {}
+): Promise<ZeppUserEventItem[]> {
+  const { lookbackDays = 0, limit = 20 } = options
+  const { start, end } =
+    lookbackDays > 0
+      ? getBrtDayBoundsMsWithLookback(dayString, lookbackDays)
+      : getBrtDayBoundsMs(dayString)
+
+  const params = new URLSearchParams({
+    limit: String(limit),
+    from: String(start),
+    to: String(end),
+    eventType,
+    timeZone: "America/Sao_Paulo",
+  })
+
+  const response = await fetch(
+    `${ZEPP_API_BASE}/users/${userId}/events?${params.toString()}`,
+    {
+      headers: buildZeppHeaders(appToken),
+      cache: "no-store",
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Zepp events HTTP ${response.status}`)
+  }
+
+  const payload = (await response.json()) as {
+    items?: ZeppUserEventItem[]
+  }
+
+  return Array.isArray(payload.items) ? payload.items : []
+}
+
+export async function fetchZeppHrvPaiForDay(
+  dayString: string,
+  appToken: string,
+  userId: string
+): Promise<ZeppHrvPaiSnapshot> {
+  try {
+    const [paiEvents, readinessEvents] = await Promise.all([
+      fetchZeppUserEvents(dayString, "PaiHealthInfo", appToken, userId),
+      fetchZeppUserEvents(dayString, "readiness", appToken, userId, {
+        lookbackDays: 7,
+        limit: 30,
+      }),
+    ])
+
+    const hrv_ms = extractHrvMsFromReadinessEvents(readinessEvents, dayString, {
+      allowLatestFallback: dayString === getBrtDateString(),
+    })
+
+    return {
+      hrv_ms,
+      pai: extractPaiFromPaiHealthEvents(paiEvents),
+    }
+  } catch (error) {
+    console.warn("[fetchZeppHrvPaiForDay]", error)
+    return { hrv_ms: null, pai: null }
+  }
 }
 
 export type ZeppWorkoutApiItem = Record<string, unknown>

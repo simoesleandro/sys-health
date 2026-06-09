@@ -7,6 +7,7 @@ import { getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
 import { createServerSupabase } from "@/lib/supabase/server"
 import {
   fetchZeppBandSummary,
+  fetchZeppHrvPaiForDay,
   fetchZeppWorkoutHistory,
   mapZeppSummaryToRow,
   mapZeppWorkoutApiItem,
@@ -79,7 +80,11 @@ export async function syncZeppData(
   try {
     console.log("[syncZeppData] iniciando fetch Zepp:", { day, userId })
 
-    const summary = await fetchZeppBandSummary(day, appToken, userId)
+    const [summary, hrvPaiFromApi, existing] = await Promise.all([
+      fetchZeppBandSummary(day, appToken, userId),
+      fetchZeppHrvPaiForDay(day, appToken, userId),
+      fetchExistingZeppHrvPai(day),
+    ])
 
     if (!summary || Object.keys(summary).length === 0) {
       console.log("[syncZeppData] sem dados para o dia:", day)
@@ -89,10 +94,16 @@ export async function syncZeppData(
       }
     }
 
-    const existing = await fetchExistingZeppHrvPai(day)
-    const row = mapZeppSummaryToRow(day, summary, existing)
+    const row = mapZeppSummaryToRow(day, summary, {
+      existing,
+      hrvMs: hrvPaiFromApi.hrv_ms,
+      pai: hrvPaiFromApi.pai,
+    })
 
-    console.log("[syncZeppData] linha mapeada:", row)
+    console.log("[syncZeppData] linha mapeada:", row, {
+      hrvPaiFromApi,
+      preservedFromDb: existing,
+    })
 
     await saveZeppRow(row)
 
@@ -107,7 +118,15 @@ export async function syncZeppData(
     revalidatePath("/treinos")
     revalidatePath("/")
 
-    const baseMessage = `Zepp sincronizado — ${row.passos} passos, ${row.sono_total_min} min sono.`
+    const recoveryParts = [
+      row.hrv_ms > 0 ? `HRV ${row.hrv_ms} ms` : null,
+      row.pai > 0 ? `PAI ${row.pai}` : null,
+    ].filter(Boolean)
+
+    const baseMessage =
+      recoveryParts.length > 0
+        ? `Zepp sincronizado — ${row.passos} passos, ${row.sono_total_min} min sono, ${recoveryParts.join(", ")}.`
+        : `Zepp sincronizado — ${row.passos} passos, ${row.sono_total_min} min sono.`
     const workoutsMessage = workoutsResult.success
       ? workoutsResult.message
       : `Treinos: ${workoutsResult.error}`
