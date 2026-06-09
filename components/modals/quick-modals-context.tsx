@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import type { MeasurementInput } from "@/lib/biometry"
+import { fetchTodayMealsForPicker } from "@/lib/actions/meals"
 
 type QuickModalsContextValue = {
   mealOpen: boolean
@@ -17,6 +18,14 @@ type QuickModalsContextValue = {
   biometryOpen: boolean
   setBiometryOpen: (open: boolean) => void
   openBiometryModal: () => void
+  editMealOpen: boolean
+  editMealId: number | null
+  setEditMealOpen: (open: boolean) => void
+  openEditMeal: (mealId: number) => void
+  editMealsPickerOpen: boolean
+  setEditMealsPickerOpen: (open: boolean) => void
+  openEditMealsPicker: () => void
+  openEditMealsFlow: () => void
   todayMeasurementForm: MeasurementInput
 }
 
@@ -35,6 +44,29 @@ export function QuickModalsProvider({
   const [waterOpen, setWaterOpen] = React.useState(false)
   const [supplementOpen, setSupplementOpen] = React.useState(false)
   const [biometryOpen, setBiometryOpen] = React.useState(false)
+  const [editMealOpen, setEditMealOpenState] = React.useState(false)
+  const [editMealId, setEditMealId] = React.useState<number | null>(null)
+  const [editMealsPickerOpen, setEditMealsPickerOpen] = React.useState(false)
+
+  const setEditMealOpen = React.useCallback((open: boolean) => {
+    setEditMealOpenState(open)
+    if (!open) setEditMealId(null)
+  }, [])
+
+  const openEditMeal = React.useCallback((mealId: number) => {
+    setEditMealId(mealId)
+    setEditMealOpenState(true)
+  }, [])
+
+  const openEditMealsFlow = React.useCallback(() => {
+    void fetchTodayMealsForPicker().then((meals) => {
+      if (meals.length === 1) {
+        openEditMeal(meals[0].id)
+        return
+      }
+      setEditMealsPickerOpen(true)
+    })
+  }, [openEditMeal])
 
   const value = React.useMemo(
     () => ({
@@ -50,9 +82,29 @@ export function QuickModalsProvider({
       biometryOpen,
       setBiometryOpen,
       openBiometryModal: () => setBiometryOpen(true),
+      editMealOpen,
+      editMealId,
+      setEditMealOpen,
+      openEditMeal,
+      editMealsPickerOpen,
+      setEditMealsPickerOpen,
+      openEditMealsPicker: () => setEditMealsPickerOpen(true),
+      openEditMealsFlow,
       todayMeasurementForm,
     }),
-    [mealOpen, waterOpen, supplementOpen, biometryOpen, todayMeasurementForm]
+    [
+      mealOpen,
+      waterOpen,
+      supplementOpen,
+      biometryOpen,
+      editMealOpen,
+      editMealId,
+      setEditMealOpen,
+      openEditMeal,
+      editMealsPickerOpen,
+      openEditMealsFlow,
+      todayMeasurementForm,
+    ]
   )
 
   return (
@@ -70,8 +122,28 @@ export function useQuickModals() {
   return context
 }
 
-/** Compatível com o modal de refeição existente */
 export function useMealModal() {
   const { mealOpen, setMealOpen, openMealModal } = useQuickModals()
   return { open: mealOpen, setOpen: setMealOpen, openMealModal }
+}
+
+export function useEditMealModal() {
+  const { editMealOpen, editMealId, setEditMealOpen, openEditMeal } =
+    useQuickModals()
+  return {
+    open: editMealOpen,
+    mealId: editMealId,
+    setOpen: setEditMealOpen,
+    openEditMeal,
+  }
+}
+
+export function useEditMealsPickerModal() {
+  const { editMealsPickerOpen, setEditMealsPickerOpen, openEditMealsPicker } =
+    useQuickModals()
+  return {
+    open: editMealsPickerOpen,
+    setOpen: setEditMealsPickerOpen,
+    openEditMealsPicker,
+  }
 }

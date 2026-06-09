@@ -23,7 +23,7 @@ export async function registerSupplements(presetIds: string[]) {
     return { success: false as const, error: "Suplementos inválidos." }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }

@@ -3,7 +3,9 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu } from "lucide-react"
+import * as React from "react"
 
+import { useQuickModals } from "@/components/modals/quick-modals-context"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -25,6 +27,23 @@ import { NavLink } from "@/components/layout/nav-link"
 
 export function MobileBottomBar() {
   const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const {
+    openMealModal,
+    openEditMealsFlow,
+    openWaterModal,
+    openSupplementModal,
+  } = useQuickModals()
+
+  function handleQuickAction(dialog: string) {
+    setMenuOpen(false)
+    if (dialog === "refeicao") openMealModal()
+    if (dialog === "editar") openEditMealsFlow()
+    if (dialog === "agua") openWaterModal()
+    if (dialog === "suplemento") openSupplementModal()
+    if (dialog === "banco") window.location.href = bancoNavItem.href
+  }
+
   const overflowActive = mainNavItems
     .filter((item) => !item.mobilePrimary)
     .some(
@@ -67,7 +86,7 @@ export function MobileBottomBar() {
           )
         })}
 
-        <Sheet>
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
@@ -108,9 +127,11 @@ export function MobileBottomBar() {
               {quickActions.map((action) => (
                 <Button
                   key={action.dialog}
+                  type="button"
                   variant="outline"
                   size="sm"
                   className="justify-start gap-2 border-zinc-800/60 bg-zinc-900/40 text-slate-400"
+                  onClick={() => handleQuickAction(action.dialog)}
                 >
                   <span aria-hidden>{action.icon}</span>
                   {action.title}

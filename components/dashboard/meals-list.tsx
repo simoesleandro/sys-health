@@ -1,11 +1,20 @@
-import { DeleteMealButton } from "@/components/dashboard/delete-meal-button"
 import { MealMacroBadges } from "@/components/dashboard/meal-macro-badges"
 import { NeonCard } from "@/components/ui/neon-card"
+import { deleteMeal } from "@/lib/actions/meals"
 import {
   formatComponentQuantity,
   formatMealTimeBrt,
   getTodayMeals,
 } from "@/lib/data"
+
+async function deleteMealFromForm(formData: FormData) {
+  "use server"
+
+  const mealId = Number(formData.get("mealId"))
+  if (!Number.isFinite(mealId) || mealId <= 0) return
+
+  await deleteMeal(mealId)
+}
 
 function MealCard({
   mealId,
@@ -37,7 +46,16 @@ function MealCard({
             {categoria}
           </span>
         </div>
-        <DeleteMealButton mealId={mealId} categoria={categoria} />
+        <form action={deleteMealFromForm}>
+          <input type="hidden" name="mealId" value={mealId} />
+          <button
+            type="submit"
+            className="rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-zinc-900/60 hover:text-red-400"
+            aria-label={`Apagar refeição ${categoria}`}
+          >
+            Apagar
+          </button>
+        </form>
       </div>
 
       <div className="px-4 py-3">

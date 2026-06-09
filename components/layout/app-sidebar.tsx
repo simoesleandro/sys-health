@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
+import { SignOutButton } from "@/components/auth/sign-out-button"
 import { Button } from "@/components/ui/button"
 import { useQuickModals } from "@/components/modals/quick-modals-context"
 import { cn } from "@/lib/utils"
@@ -37,19 +38,34 @@ function isNavActive(pathname: string, href: string) {
 export function AppSidebar({
   kpiSlot,
   amazfitSlot,
+  userEmail,
+  userInitials,
 }: {
   kpiSlot: React.ReactNode
   amazfitSlot: React.ReactNode
+  userEmail: string
+  userInitials: string
 }) {
   const pathname = usePathname()
-  const { openMealModal, openWaterModal, openSupplementModal } =
-    useQuickModals()
+  const {
+    openMealModal,
+    openWaterModal,
+    openSupplementModal,
+    openEditMealsFlow,
+  } = useQuickModals()
   const bancoActive = isNavActive(pathname, bancoNavItem.href)
   const BancoIcon = bancoNavItem.icon
   const bancoAccent = NAV_ACCENT_CLASSES[bancoNavItem.accent]
 
   function handleQuickAction(dialog: string) {
-    if (dialog === "refeicao") openMealModal()
+    if (dialog === "refeicao") {
+      openMealModal()
+      return
+    }
+    if (dialog === "editar") {
+      openEditMealsFlow()
+      return
+    }
     if (dialog === "agua") openWaterModal()
     if (dialog === "suplemento") openSupplementModal()
     if (dialog === "banco") window.location.href = bancoNavItem.href
@@ -57,9 +73,9 @@ export function AppSidebar({
 
   return (
     <Sidebar
-      collapsible="offcanvas"
+      collapsible="none"
       variant="sidebar"
-      className="border-zinc-800/60"
+      className="hidden border-zinc-800/60 md:flex"
     >
       <SidebarHeader className="border-b border-zinc-800/60 px-4 py-5">
         <Link href="/" className="flex items-baseline gap-0.5">
@@ -72,16 +88,7 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="min-h-0 flex-1 overflow-y-auto px-1">
-        <SidebarGroup className="py-2">
-          <SidebarGroupLabel className="neon-kicker px-3">
-            Resumo do dia
-          </SidebarGroupLabel>
-          <SidebarGroupContent>{kpiSlot}</SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator className="bg-zinc-800/60" />
-
+      <SidebarContent className="min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:thin]">
         <SidebarGroup className="py-2">
           <SidebarGroupLabel className="neon-label px-3">Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -96,6 +103,7 @@ export function AppSidebar({
                     <SidebarMenuButton
                       asChild
                       isActive={active}
+                      tooltip={item.title}
                       className={cn(
                         "text-slate-400 hover:bg-zinc-900/60 hover:text-white",
                         active && "bg-zinc-900/70 text-white"
@@ -141,9 +149,18 @@ export function AppSidebar({
             ))}
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarSeparator className="bg-zinc-800/60" />
+
+        <SidebarGroup className="py-2">
+          <SidebarGroupLabel className="neon-kicker px-3">
+            Resumo do dia
+          </SidebarGroupLabel>
+          <SidebarGroupContent>{kpiSlot}</SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="mt-auto flex shrink-0 flex-col gap-4 border-t border-zinc-800/60 px-4 pt-4 pb-5">
+      <SidebarFooter className="mt-auto flex max-h-[42vh] shrink-0 flex-col gap-3 overflow-y-auto border-t border-zinc-800/60 px-4 pt-3 pb-4 [scrollbar-width:thin]">
         {amazfitSlot}
 
         <div
@@ -158,15 +175,16 @@ export function AppSidebar({
           <div className="flex items-center gap-3">
             <Avatar className="size-10 shrink-0 border border-zinc-800/60">
               <AvatarFallback className="bg-black text-xs font-bold text-brand-cyan">
-                LR
+                {userInitials}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">Leandro R.</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-white">{userEmail}</p>
               <p className="truncate text-[10px] text-slate-500">
                 HealthOS Dashboard
               </p>
             </div>
+            <SignOutButton className="h-8 shrink-0 px-2 text-slate-400 hover:text-white" />
           </div>
 
           <Link

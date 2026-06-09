@@ -114,7 +114,7 @@ function maybeSynthesize(
 
 async function fetchDailyPassos(days: DayLabel[]) {
   const map = new Map<string, number>()
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return map
 
   const startDate = days[0]?.date
@@ -142,7 +142,7 @@ async function fetchDailyPassos(days: DayLabel[]) {
 async function fetchDailyWearable(days: DayLabel[]) {
   const sono = new Map<string, number>()
   const hrv = new Map<string, number>()
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return { sono, hrv }
 
   const startDate = days[0]?.date
@@ -179,7 +179,7 @@ function brtDateFromIso(iso: string) {
 
 async function fetchDailyCalorias(days: DayLabel[]) {
   const map = new Map<string, number>()
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return map
 
   const startDate = days[0]?.date
@@ -214,7 +214,7 @@ async function fetchDailyCalorias(days: DayLabel[]) {
 
 async function fetchDailyPeso(days: DayLabel[]) {
   const map = new Map<string, number>()
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return map
 
   const startDate = days[0]?.date
@@ -251,7 +251,7 @@ async function fetchDailyPeso(days: DayLabel[]) {
 
 async function fetchDailyVolumeKg(days: DayLabel[]) {
   const map = new Map<string, number>()
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return map
 
   const startDate = days[0]?.date

@@ -11,7 +11,7 @@ export async function addWater(ml: number) {
     return { success: false as const, error: "Informe um volume válido em ml." }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }

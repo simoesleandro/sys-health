@@ -21,7 +21,23 @@ import {
   type ActiveMedication,
   type MedicationChecklistItem,
 } from "@/lib/medications"
-import { createServerSupabase } from "@/lib/supabase/server"
+import {
+  formatMealTimeBrt,
+  getBrtTodayUtcBounds,
+  getBrtUtcBoundsForDate,
+  getBrtUtcBoundsForOffset,
+  parseDataHoraUtcMs,
+} from "@/lib/brt-time"
+import {
+  formatComponentQuantity,
+  parseComponentesJson,
+  type MealComponent,
+  type TodayMeal,
+} from "@/lib/meal-types"
+import {
+  createServerSupabase,
+  type ServerSupabaseClient,
+} from "@/lib/supabase/server"
 import { SYNC_FRESHNESS_HOURS } from "@/lib/sync-env"
 import {
   VISUAL_SUPPLEMENTS,
@@ -72,59 +88,26 @@ const EMPTY_AMAZFIT: TodayAmazfitData = {
   synced: false,
 }
 
-/** Limites UTC [início, fim) do dia civil em America/Sao_Paulo. */
-export function getBrtTodayUtcBounds(now = new Date()) {
-  return getBrtUtcBoundsForOffset(0, now)
-}
+export {
+  formatMealTimeBrt,
+  getBrtTodayUtcBounds,
+  getBrtUtcBoundsForDate,
+  getBrtUtcBoundsForOffset,
+  parseDataHoraUtcMs,
+} from "@/lib/brt-time"
 
-/** Limites UTC [início, fim) para uma data civil BRT (YYYY-MM-DD). */
-export function getBrtUtcBoundsForDate(brtDate: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(brtDate)
-  if (!match) {
-    return getBrtUtcBoundsForOffset(1)
-  }
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const start = new Date(Date.UTC(year, month - 1, day, 3, 0, 0, 0))
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
-
-  return {
-    brtDate: `${match[1]}-${match[2]}-${match[3]}`,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
-  }
-}
-
-/** Limites UTC de um dia civil em BRT (0 = hoje, 1 = ontem, …). */
-export function getBrtUtcBoundsForOffset(daysAgo = 0, now = new Date()) {
-  const brtDate = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(now)
-
-  const [year, month, day] = brtDate.split("-").map(Number)
-  const start = new Date(
-    Date.UTC(year, month - 1, day - daysAgo, 3, 0, 0, 0)
-  )
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
-
-  const dayLabel = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date(start.getTime() + 12 * 60 * 60 * 1000))
-
-  return {
-    brtDate: dayLabel,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
-  }
-}
+export {
+  formatComponentQuantity,
+  parseComponentesJson,
+  type MealComponent,
+  type TodayMeal,
+} from "@/lib/meal-types"
 
 async function fetchNutritionTotalsForBounds(
   startIso: string,
   endIso: string
 ): Promise<TodayNutritionTotals> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return EMPTY_TOTALS
 
   try {
@@ -181,7 +164,7 @@ async function fetchNutritionTotalsForBounds(
 async function fetchAmazfitDataForBrtDate(
   brtDate: string
 ): Promise<TodayAmazfitData> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return EMPTY_AMAZFIT
 
   try {
@@ -274,7 +257,7 @@ export const getDayHistorySummary = cache(async (brtDate: string) => {
 })
 
 async function getEvacuationsForBrtBounds(startIso: string, endIso: string) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return []
 
   try {
@@ -413,48 +396,6 @@ export function formatKpiValues(
   }
 }
 
-export type MealComponent = {
-  nome: string
-  gramas?: number
-  qtd?: number
-  unidade?: string
-}
-
-export type TodayMeal = {
-  id: number
-  dataHora: string
-  categoria: string
-  descricao: string
-  calorias: number
-  proteinas: number
-  carboidratos: number
-  gorduras: number
-  componentes: MealComponent[]
-}
-
-/** Normaliza data_hora do Postgres/Supabase para instante UTC (ms). */
-export function parseDataHoraUtcMs(dataHora: string) {
-  const trimmed = dataHora.trim()
-  const iso = trimmed.includes("T")
-    ? trimmed
-    : trimmed.replace(" ", "T")
-
-  const hasTimezone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(iso)
-  const normalized = hasTimezone ? iso : `${iso}Z`
-
-  const ms = Date.parse(normalized)
-  return Number.isNaN(ms) ? 0 : ms
-}
-
-export function formatMealTimeBrt(dataHora: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(parseDataHoraUtcMs(dataHora)))
-}
-
 /** Mais recente primeiro — alinhado ao ORDER BY data_hora DESC do Streamlit. */
 function sortMealsByDataHoraDesc(meals: TodayMeal[]) {
   return [...meals].sort(
@@ -464,55 +405,8 @@ function sortMealsByDataHoraDesc(meals: TodayMeal[]) {
   )
 }
 
-export function parseComponentesJson(
-  raw: string | null | undefined,
-  descricaoFallback = ""
-): MealComponent[] {
-  if (raw) {
-    try {
-      const data = JSON.parse(raw) as unknown
-      if (Array.isArray(data)) {
-        const items: MealComponent[] = []
-        for (const item of data) {
-          if (!item || typeof item !== "object") continue
-          const row = item as Record<string, unknown>
-          const nome = String(row.nome ?? descricaoFallback ?? "").trim()
-          if (!nome) continue
-          items.push({
-            nome,
-            ...(row.gramas != null ? { gramas: Number(row.gramas) } : {}),
-            ...(row.qtd != null ? { qtd: Number(row.qtd) } : {}),
-            ...(row.unidade != null ? { unidade: String(row.unidade) } : {}),
-          })
-        }
-
-        if (items.length > 0) return items
-      }
-    } catch {
-      // fallback abaixo
-    }
-  }
-
-  if (descricaoFallback.trim()) {
-    return [{ nome: descricaoFallback.trim() }]
-  }
-
-  return []
-}
-
-export function formatComponentQuantity(component: MealComponent) {
-  const qtd = component.gramas ?? component.qtd
-  if (qtd == null || qtd <= 0) return null
-
-  const unidade = component.unidade ?? "g"
-  if (unidade === "g" || unidade === "ml") {
-    return `${qtd}${unidade}`
-  }
-  return `${qtd} ${unidade}`
-}
-
 export const getTodayMeals = cache(async (): Promise<TodayMeal[]> => {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return []
 
   const { startIso, endIso } = getBrtTodayUtcBounds()
@@ -685,7 +579,7 @@ export const MEASUREMENTS_HISTORY_START_DATE = "2026-04-01"
 const WEIGHT_HISTORY_PAGE_SIZE = 1000
 
 async function fetchAllWeightRecords(
-  supabase: NonNullable<ReturnType<typeof createServerSupabase>>
+  supabase: ServerSupabaseClient
 ) {
   const rows: { data: string; peso: number | string | null }[] = []
   let offset = 0
@@ -711,7 +605,7 @@ async function fetchAllWeightRecords(
 
 /** Histórico completo de peso (tabela medidas) — sem filtro de data, ordem ascendente. */
 export const getWeightHistory = cache(async (): Promise<WeightHistoryResult> => {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     console.log("[getWeightHistory] Supabase não configurado — sem dados")
     return { points: [], start: null }
@@ -755,7 +649,7 @@ export const getWeightHistory14Days = getWeightHistory
 /** Histórico de medidas corporais desde 2026-04-01. */
 export const getMeasurementsHistory = cache(
   async (): Promise<MeasurementRecord[]> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) {
       console.log("[getMeasurementsHistory] Supabase não configurado — sem dados")
       return []
@@ -792,7 +686,7 @@ export const getMeasurementsHistory = cache(
 export const getWearableTrends14Days = cache(
   async (): Promise<WearableTrendPoint[]> => {
     const days = getLast14BrtDays()
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
 
     if (!supabase) {
       return days.map((day) => ({ ...day, sonoHoras: null, hrv: null }))
@@ -853,7 +747,7 @@ function mapFavoriteFoodRow(row: Record<string, unknown>): FavoriteFood {
 }
 
 export const getFavoriteFoods = cache(async (): Promise<FavoriteFood[]> => {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return []
 
   try {
@@ -875,7 +769,7 @@ export const getFavoriteFoods = cache(async (): Promise<FavoriteFood[]> => {
 
 export const getTodayMeasurement = cache(
   async (): Promise<MeasurementRecord | null> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) return null
 
     const { brtDate } = getBrtTodayUtcBounds()
@@ -900,7 +794,7 @@ export const getTodayMeasurement = cache(
 
 export const getLatestMeasurement = cache(
   async (): Promise<LatestMeasurementSummary> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) {
       return { peso: null, data: null, dataLabel: null }
     }
@@ -1053,7 +947,7 @@ function buildSyncSourceStatus(
 }
 
 async function fetchLatestAmazfitSyncAt(): Promise<string | null> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return null
 
   try {
@@ -1073,7 +967,7 @@ async function fetchLatestAmazfitSyncAt(): Promise<string | null> {
 }
 
 async function fetchLatestHevySyncAt(): Promise<string | null> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return null
 
   try {
@@ -1116,7 +1010,7 @@ export const getSyncStatus = cache(async (): Promise<SyncStatus> => {
 
 export const getRecentHevyWorkouts = cache(
   async (limit = 20): Promise<HevyWorkout[]> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) return []
 
     try {
@@ -1150,7 +1044,7 @@ export const getRecentHevyWorkouts = cache(
 /** Cardio Zepp — workouts detalhados (amazfit_workouts) com fallback em amazfit_dados. */
 export const getZeppRunningSessions = cache(
   async (limit = 30): Promise<ZeppRunSession[]> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) {
       console.log("[getZeppRunningSessions] Supabase não configurado — sem dados")
       return []
@@ -1219,7 +1113,7 @@ function mapActiveMedicationRow(row: Record<string, unknown>): ActiveMedication 
 }
 
 async function fetchActiveMedications(): Promise<ActiveMedication[]> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return MOCK_ACTIVE_MEDICATIONS
 
   try {
@@ -1257,7 +1151,7 @@ async function readMockTakenMedicationIds(brtDate: string) {
 async function fetchTodayMedicationLogIds(
   brtDate: string
 ): Promise<Map<number, number>> {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   const takenByMedicationId = new Map<number, number>()
 
   if (supabase) {
@@ -1292,7 +1186,7 @@ async function fetchTodayMedicationLogIds(
 
 export const getTodayEvacuations = cache(
   async (): Promise<EvacuationRecord[]> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) return []
 
     const { startIso, endIso } = getBrtTodayUtcBounds()

@@ -41,7 +41,7 @@ export async function saveMeasurement(data: MeasurementInput) {
     }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }

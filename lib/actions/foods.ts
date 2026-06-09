@@ -59,7 +59,7 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
   const term = query.trim()
   if (term.length < 2) return []
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return []
 
   try {
@@ -97,7 +97,7 @@ export async function createFood(data: FoodFormInput) {
     return { success: false as const, error: validation.error }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }
@@ -131,7 +131,7 @@ export async function updateFood(id: number, data: FoodFormInput) {
     return { success: false as const, error: validation.error }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }
@@ -160,7 +160,7 @@ export async function deleteFood(id: number) {
     return { success: false as const, error: "ID inválido." }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }

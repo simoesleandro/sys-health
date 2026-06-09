@@ -58,6 +58,95 @@ export type CreateMealInput = {
   componentes: MealComponentPayload[]
 }
 
+export type UpdateMealInput = CreateMealInput & {
+  id: number
+}
+
+export type StoredMealComponent = {
+  nome: string
+  gramas: number
+  unidade: string
+  kcal: number
+  prot: number
+  carb: number
+  gord: number
+  banco_id: number
+}
+
+export function parseStoredComponentes(
+  raw: string | null | undefined,
+  descricaoFallback = ""
+): StoredMealComponent[] {
+  if (raw) {
+    try {
+      const data = JSON.parse(raw) as unknown
+      if (Array.isArray(data)) {
+        const items: StoredMealComponent[] = []
+
+        for (const item of data) {
+          if (!item || typeof item !== "object") continue
+          const row = item as Record<string, unknown>
+          const nome = String(row.nome ?? descricaoFallback ?? "").trim()
+          if (!nome) continue
+
+          const gramas = Number(row.gramas ?? row.qtd ?? 0)
+          items.push({
+            nome,
+            gramas: Number.isFinite(gramas) && gramas > 0 ? gramas : 1,
+            unidade: String(row.unidade ?? "g"),
+            kcal: Number(row.kcal ?? 0),
+            prot: Number(row.prot ?? 0),
+            carb: Number(row.carb ?? 0),
+            gord: Number(row.gord ?? 0),
+            banco_id: Number(row.banco_id ?? 0),
+          })
+        }
+
+        if (items.length > 0) return items
+      }
+    } catch {
+      // fallback abaixo
+    }
+  }
+
+  if (descricaoFallback.trim()) {
+    return [
+      {
+        nome: descricaoFallback.trim(),
+        gramas: 1,
+        unidade: "g",
+        kcal: 0,
+        prot: 0,
+        carb: 0,
+        gord: 0,
+        banco_id: 0,
+      },
+    ]
+  }
+
+  return []
+}
+
+export function storedComponentToCartItem(
+  comp: StoredMealComponent,
+  index: number
+): CartItem {
+  const qtd = comp.gramas > 0 ? comp.gramas : 1
+
+  return {
+    uid: `edit-${comp.banco_id}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    bancoId: comp.banco_id,
+    nome: comp.nome,
+    qtd,
+    unidade: comp.unidade,
+    qtdRef: qtd,
+    kcalRef: comp.kcal,
+    protRef: comp.prot,
+    carbRef: comp.carb,
+    gordRef: comp.gord,
+  }
+}
+
 /** Sugere categoria pelo horário de Brasília (espelha _cat_hora do Streamlit). */
 export function suggestMealCategoryByHour(date = new Date()): MealCategory {
   const hour = Number(

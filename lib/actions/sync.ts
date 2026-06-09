@@ -27,7 +27,7 @@ type SyncZeppWorkoutsOptions = {
 }
 
 async function fetchExistingZeppHrvPai(dayString: string) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return {}
 
   const { data } = await supabase
@@ -43,7 +43,7 @@ async function fetchExistingZeppHrvPai(dayString: string) {
 }
 
 async function saveZeppRow(row: ZeppAmazfitRow) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     throw new Error("Supabase não configurado.")
   }
@@ -145,7 +145,7 @@ export async function syncZeppData(
 }
 
 async function upsertZeppWorkouts(rows: ZeppWorkoutRow[]) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     throw new Error("Supabase não configurado.")
   }

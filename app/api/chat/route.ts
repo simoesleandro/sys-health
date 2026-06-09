@@ -7,6 +7,7 @@ import {
 
 import { buildCoachSystemPrompt } from "@/lib/coach"
 import { getCoachHealthContext } from "@/lib/data"
+import { requireAuth } from "@/lib/supabase/auth"
 
 export const maxDuration = 30
 
@@ -19,6 +20,14 @@ const google = createGoogleGenerativeAI({
 })
 
 export async function POST(req: Request) {
+  const auth = await requireAuth()
+  if (auth.error) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
   const apiKey =
     process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY
 

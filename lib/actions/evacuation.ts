@@ -17,7 +17,7 @@ export async function registerEvacuation(
     return { success: false as const, error: "Tipo Bristol inválido (1 a 7)." }
   }
 
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) {
     return { success: false as const, error: "Supabase não configurado." }
   }

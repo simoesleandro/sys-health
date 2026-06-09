@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,7 @@ function resetModalState(
 }
 
 export function MealModal() {
+  const router = useRouter()
   const { open, setOpen } = useMealModal()
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
@@ -173,6 +175,7 @@ export function MealModal() {
       }
 
       handleOpenChange(false)
+      router.refresh()
     })
   }
 

@@ -42,7 +42,7 @@ async function toggleMedicationInDatabase(
   isTaken: boolean,
   brtDate: string
 ) {
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   if (!supabase) return { ok: false as const, useMock: true }
 
   try {

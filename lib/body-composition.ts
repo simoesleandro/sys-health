@@ -118,7 +118,7 @@ function buildDeltaRows(
 
 export const getBodyCompositionDeltas = cache(
   async (): Promise<BodyCompositionDeltasResult> => {
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
     if (!supabase) {
       console.log("[getBodyCompositionDeltas] Supabase não configurado — sem dados")
       return EMPTY_BODY_COMPOSITION
