@@ -89,7 +89,9 @@ export default function HojePage() {
           <NeonCard accent="magenta" className="px-6 py-10 text-center">
             <p className="neon-section-title">Agenda</p>
             <p className="mt-3 text-sm text-slate-400">
-              Módulo de agenda em breve — integração com rotinas e lembretes.
+              Google Calendar ainda não está integrado nesta versão web. A
+              sincronização existia apenas no app legado (Streamlit) e será
+              adicionada em uma próxima atualização.
             </p>
           </NeonCard>
         }

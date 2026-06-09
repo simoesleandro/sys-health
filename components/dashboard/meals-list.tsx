@@ -1,3 +1,4 @@
+import { MealCardActions } from "@/components/dashboard/meal-card-actions"
 import { MealMacroBadges } from "@/components/dashboard/meal-macro-badges"
 import { NeonCard } from "@/components/ui/neon-card"
 import { deleteMeal } from "@/lib/actions/meals"
@@ -46,16 +47,11 @@ function MealCard({
             {categoria}
           </span>
         </div>
-        <form action={deleteMealFromForm}>
-          <input type="hidden" name="mealId" value={mealId} />
-          <button
-            type="submit"
-            className="rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-zinc-900/60 hover:text-red-400"
-            aria-label={`Apagar refeição ${categoria}`}
-          >
-            Apagar
-          </button>
-        </form>
+        <MealCardActions
+          mealId={mealId}
+          categoria={categoria}
+          deleteFormAction={deleteMealFromForm}
+        />
       </div>
 
       <div className="px-4 py-3">

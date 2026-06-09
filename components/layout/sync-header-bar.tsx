@@ -3,6 +3,7 @@
 import type { SyncSourceStatus } from "@/lib/data"
 
 import { SyncStatusIndicators } from "@/components/layout/sync-status-tags"
+import { HevySyncButton } from "@/components/layout/hevy-sync-button"
 import { ZeppSyncButton } from "@/components/layout/zepp-sync-button"
 
 export function SyncHeaderBar({
@@ -16,6 +17,7 @@ export function SyncHeaderBar({
     <div className="flex flex-wrap items-center gap-3">
       <SyncStatusIndicators amazfit={amazfit} hevy={hevy} />
       <ZeppSyncButton />
+      <HevySyncButton />
     </div>
   )
 }

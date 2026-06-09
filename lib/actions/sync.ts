@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache"
 
 import { getBrtTodayUtcBounds } from "@/lib/data"
-import { getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
+import {
+  fetchHevyWorkoutsPage,
+  mapHevyWorkoutToRow,
+} from "@/lib/hevy-api"
+import { getHevyApiKey, getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
 import { createServerSupabase } from "@/lib/supabase/server"
 import {
   fetchZeppBandSummary,
@@ -26,19 +30,23 @@ type SyncZeppWorkoutsOptions = {
   skipRevalidate?: boolean
 }
 
-async function fetchExistingZeppHrvPai(dayString: string) {
+async function fetchExistingZeppRow(dayString: string) {
   const supabase = await createServerSupabase()
   if (!supabase) return {}
 
   const { data } = await supabase
     .from("amazfit_dados")
-    .select("hrv_ms, pai")
+    .select("hrv_ms, pai, sono_total_min, sono_profundo_min")
     .eq("data_hora", `${dayString} 00:00:00`)
     .maybeSingle()
 
   return {
     hrv_ms: data?.hrv_ms == null ? 0 : Number(data.hrv_ms),
     pai: data?.pai == null ? 0 : Number(data.pai),
+    sono_total_min:
+      data?.sono_total_min == null ? 0 : Number(data.sono_total_min),
+    sono_profundo_min:
+      data?.sono_profundo_min == null ? 0 : Number(data.sono_profundo_min),
   }
 }
 
@@ -83,7 +91,7 @@ export async function syncZeppData(
     const [summary, hrvPaiFromApi, existing] = await Promise.all([
       fetchZeppBandSummary(day, appToken, userId),
       fetchZeppHrvPaiForDay(day, appToken, userId),
-      fetchExistingZeppHrvPai(day),
+      fetchExistingZeppRow(day),
     ])
 
     if (!summary || Object.keys(summary).length === 0) {
@@ -243,12 +251,70 @@ export async function syncZeppWorkouts(
   }
 }
 
-/** Placeholder — implementação Hevy no próximo passo. */
-export async function syncHevyData(): Promise<SyncActionResult> {
-  console.log("[syncHevyData] placeholder — aguardando implementação")
+async function upsertHevyWorkouts(
+  rows: ReturnType<typeof mapHevyWorkoutToRow>[]
+) {
+  const supabase = await createServerSupabase()
+  if (!supabase) {
+    throw new Error("Supabase não configurado.")
+  }
 
-  return {
-    success: false,
-    error: "Sync Hevy ainda não implementado.",
+  const { error } = await supabase.from("hevy_treinos").upsert(rows, {
+    onConflict: "id",
+  })
+
+  if (error) throw error
+}
+
+export async function syncHevyData(
+  maxPages = 5
+): Promise<SyncActionResult> {
+  const apiKey = getHevyApiKey()
+
+  if (!apiKey) {
+    return { success: false, error: "HEVY_API_KEY não configurado." }
+  }
+
+  try {
+    const allRows: ReturnType<typeof mapHevyWorkoutToRow>[] = []
+
+    for (let page = 1; page <= maxPages; page++) {
+      const { workouts, pageCount } = await fetchHevyWorkoutsPage(
+        apiKey,
+        page,
+        50
+      )
+
+      for (const workout of workouts) {
+        allRows.push(mapHevyWorkoutToRow(workout))
+      }
+
+      if (page >= pageCount) break
+    }
+
+    if (!allRows.length) {
+      return {
+        success: false,
+        error: "Nenhum treino encontrado na API do Hevy.",
+      }
+    }
+
+    await upsertHevyWorkouts(allRows)
+
+    revalidatePath("/", "layout")
+    revalidatePath("/treinos")
+    revalidatePath("/historico")
+    revalidatePath("/")
+
+    return {
+      success: true,
+      message: `${allRows.length} treino(s) Hevy sincronizado(s).`,
+    }
+  } catch (error) {
+    console.error("[syncHevyData]", error)
+    return {
+      success: false,
+      error: "Não foi possível sincronizar treinos do Hevy.",
+    }
   }
 }

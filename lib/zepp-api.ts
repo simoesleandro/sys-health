@@ -184,7 +184,12 @@ export function mapZeppSummaryToRow(
   dayString: string,
   summary: Record<string, unknown>,
   options: {
-    existing?: { hrv_ms?: number | null; pai?: number | null }
+    existing?: {
+      hrv_ms?: number | null
+      pai?: number | null
+      sono_total_min?: number | null
+      sono_profundo_min?: number | null
+    }
     hrvMs?: number | null
     pai?: number | null
   } = {}
@@ -200,8 +205,14 @@ export function mapZeppSummaryToRow(
   const deep = Number(slp.dp ?? 0) || 0
   const light = Number(slp.lt ?? 0) || 0
   const rem = Number(slp.dt ?? 0) || 0
-  const sleepTotal =
+  const sleepFromApi =
     deep + light + rem || Number(slp.ebt ?? 0) || 0
+  const sleepTotal =
+    sleepFromApi > 0
+      ? sleepFromApi
+      : Number(existing.sono_total_min ?? 0) || 0
+  const deepSleep =
+    deep > 0 ? deep : Number(existing.sono_profundo_min ?? 0) || 0
 
   const runDistM = Number(stp.runDist ?? 0) || 0
   const runCal = Number(stp.runCal ?? 0) || 0
@@ -213,7 +224,7 @@ export function mapZeppSummaryToRow(
     distancia_km:
       Math.round((Number(stp.dis ?? 0) / 1000) * 100) / 100,
     sono_total_min: sleepTotal,
-    sono_profundo_min: deep,
+    sono_profundo_min: deepSleep,
     hrv_ms: resolved.hrv_ms,
     pai: resolved.pai,
     corrida_km: Math.round((runDistM / 1000) * 100) / 100,

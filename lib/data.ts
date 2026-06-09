@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { cache } from "react"
 
 import {
@@ -17,11 +16,7 @@ import {
   type EvacuationRecord,
 } from "@/lib/evacuation"
 import {
-  MOCK_ACTIVE_MEDICATIONS,
-  type ActiveMedication,
-  type MedicationChecklistItem,
-} from "@/lib/medications"
-import {
+  brtDateFromDataHora,
   formatMealTimeBrt,
   getBrtTodayUtcBounds,
   getBrtUtcBoundsForDate,
@@ -238,10 +233,14 @@ export const getYesterdayAmazfitData = cache(
 )
 
 export const getDayHistorySummary = cache(async (brtDate: string) => {
-  const [nutrition, amazfit, goals] = await Promise.all([
+  const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
+
+  const [nutrition, amazfit, goals, meals, evacuations] = await Promise.all([
     getNutritionTotalsForDate(brtDate),
     getAmazfitDataForDate(brtDate),
     getUserNutritionGoals(),
+    getMealsForDate(brtDate),
+    getEvacuationsForBrtBounds(startIso, endIso),
   ])
 
   return {
@@ -255,6 +254,76 @@ export const getDayHistorySummary = cache(async (brtDate: string) => {
     sono: amazfit.synced
       ? formatSleepMinutes(amazfit.sonoTotalMin)
       : "—",
+    caloriasAtivas: amazfit.synced
+      ? `${amazfit.caloriasGastas.toLocaleString("pt-BR")} kcal`
+      : "—",
+    refeicoes: String(meals.length),
+    evacuacoes: String(evacuations.length),
+  }
+})
+
+export const getMealsForDate = cache(
+  async (brtDate: string): Promise<TodayMeal[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
+
+    try {
+      const { data, error } = await supabase
+        .from("refeicoes")
+        .select(
+          "id, data_hora, categoria, descricao, calorias, proteinas, carboidratos, gorduras, componentes_json"
+        )
+        .gte("data_hora", startIso)
+        .lt("data_hora", endIso)
+        .order("data_hora", { ascending: false })
+
+      if (error) throw error
+
+      const meals = (data ?? []).map((row) => ({
+        id: Number(row.id),
+        dataHora: String(row.data_hora),
+        categoria: String(row.categoria ?? "Refeição"),
+        descricao: String(row.descricao ?? ""),
+        calorias: Number(row.calorias ?? 0),
+        proteinas: Number(row.proteinas ?? 0),
+        carboidratos: Number(row.carboidratos ?? 0),
+        gorduras: Number(row.gorduras ?? 0),
+        componentes: parseComponentesJson(
+          row.componentes_json as string | null,
+          String(row.descricao ?? "")
+        ),
+      }))
+
+      return sortMealsByDataHoraDesc(meals)
+    } catch (error) {
+      console.error("[getMealsForDate]", error)
+      return []
+    }
+  }
+)
+
+export const getDayHistoryDetails = cache(async (brtDate: string) => {
+  const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
+
+  const [meals, evacuations, hevyAll, zeppAll] = await Promise.all([
+    getMealsForDate(brtDate),
+    getEvacuationsForBrtBounds(startIso, endIso),
+    getRecentHevyWorkouts(60),
+    getZeppRunningSessions(60),
+  ])
+
+  const hevyWorkouts = hevyAll.filter(
+    (workout) => brtDateFromDataHora(workout.dataHora) === brtDate
+  )
+  const zeppSessions = zeppAll.filter((session) => session.data === brtDate)
+
+  return {
+    meals,
+    evacuations,
+    hevyWorkouts,
+    zeppSessions,
   }
 })
 
@@ -1110,87 +1179,6 @@ export const getZeppRunningSessions = cache(
   }
 )
 
-function mapActiveMedicationRow(row: Record<string, unknown>): ActiveMedication {
-  return {
-    id: Number(row.id),
-    nome: String(row.nome ?? ""),
-    dosagem: String(row.dosagem ?? ""),
-    periodo: String(row.periodo ?? row.horario ?? ""),
-  }
-}
-
-async function fetchActiveMedications(): Promise<ActiveMedication[]> {
-  const supabase = await createServerSupabase()
-  if (!supabase) return MOCK_ACTIVE_MEDICATIONS
-
-  try {
-    const { data, error } = await supabase
-      .from("medicamentos_ativos")
-      .select("id, nome, dosagem, periodo, horario")
-      .order("nome", { ascending: true })
-
-    if (error) throw error
-    if (!data?.length) return MOCK_ACTIVE_MEDICATIONS
-
-    return data.map((row) => mapActiveMedicationRow(row))
-  } catch (error) {
-    console.error("[fetchActiveMedications]", error)
-    return MOCK_ACTIVE_MEDICATIONS
-  }
-}
-
-const MOCK_LOGS_COOKIE = "syshealth-medication-logs"
-
-async function readMockTakenMedicationIds(brtDate: string) {
-  const cookieStore = await cookies()
-  const raw = cookieStore.get(MOCK_LOGS_COOKIE)?.value
-  if (!raw) return new Set<number>()
-
-  try {
-    const parsed = JSON.parse(raw) as { date: string; takenIds: number[] }
-    if (parsed.date !== brtDate) return new Set<number>()
-    return new Set(parsed.takenIds)
-  } catch {
-    return new Set<number>()
-  }
-}
-
-async function fetchTodayMedicationLogIds(
-  brtDate: string
-): Promise<Map<number, number>> {
-  const supabase = await createServerSupabase()
-  const takenByMedicationId = new Map<number, number>()
-
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("logs_medicacao")
-        .select("id, medicamento_id, data")
-        .eq("data", brtDate)
-
-      if (error) throw error
-
-      for (const row of data ?? []) {
-        takenByMedicationId.set(
-          Number(row.medicamento_id),
-          Number(row.id)
-        )
-      }
-
-      return takenByMedicationId
-    } catch (error) {
-      console.error("[fetchTodayMedicationLogIds]", error)
-    }
-  }
-
-  const mockTakenIds = await readMockTakenMedicationIds(brtDate)
-  for (const medicationId of mockTakenIds) {
-    takenByMedicationId.set(medicationId, -1)
-  }
-
-  return takenByMedicationId
-}
-
 export const getEvacuationHistory = cache(
   async (limit = 200): Promise<EvacuationRecord[]> => {
     const supabase = await createServerSupabase()
@@ -1262,21 +1250,3 @@ export const getTodayEvacuations = cache(
   }
 )
 
-export const getMedicationChecklist = cache(
-  async (): Promise<MedicationChecklistItem[]> => {
-    const { brtDate } = getBrtTodayUtcBounds()
-    const [medications, takenLogs] = await Promise.all([
-      fetchActiveMedications(),
-      fetchTodayMedicationLogIds(brtDate),
-    ])
-
-    return medications.map((medication) => {
-      const logId = takenLogs.get(medication.id) ?? null
-      return {
-        ...medication,
-        isTaken: logId != null,
-        logId,
-      }
-    })
-  }
-)

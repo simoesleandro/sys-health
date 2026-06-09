@@ -62,6 +62,16 @@ export function parseDataHoraUtcMs(dataHora: string) {
   return Number.isNaN(ms) ? 0 : ms
 }
 
+/** Data civil BRT (YYYY-MM-DD) a partir de data_hora ISO/Postgres. */
+export function brtDateFromDataHora(dataHora: string) {
+  const ms = parseDataHoraUtcMs(dataHora)
+  if (!ms) return ""
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(ms))
+}
+
 export function formatMealTimeBrt(dataHora: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
