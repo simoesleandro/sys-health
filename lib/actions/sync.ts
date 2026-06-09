@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache"
 
 import { getBrtTodayUtcBounds } from "@/lib/data"
+import { requireAuth } from "@/lib/supabase/auth"
+import {
+  createServiceSupabase,
+  type ServerSupabaseClient,
+} from "@/lib/supabase/server"
 import {
   fetchHevyWorkoutsPage,
+  HEVY_MAX_PAGE_SIZE,
   mapHevyWorkoutToRow,
 } from "@/lib/hevy-api"
 import { getHevyApiKey, getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
@@ -251,24 +257,72 @@ export async function syncZeppWorkouts(
   }
 }
 
-async function upsertHevyWorkouts(
-  rows: ReturnType<typeof mapHevyWorkoutToRow>[]
+async function upsertHevyWorkoutsWithSession(
+  rows: ReturnType<typeof mapHevyWorkoutToRow>[],
+  userId: string,
+  supabase: ServerSupabaseClient
 ) {
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    throw new Error("Supabase não configurado.")
+  const payload = rows.map((row) => ({ ...row, user_id: userId }))
+
+  const { data: owned, error: selectError } = await supabase
+    .from("hevy_treinos")
+    .select("id")
+    .eq("user_id", userId)
+
+  if (selectError) throw selectError
+
+  const ownedIds = new Set((owned ?? []).map((row) => String(row.id)))
+  const toInsert = payload.filter((row) => !ownedIds.has(row.id))
+  const toUpdate = payload.filter((row) => ownedIds.has(row.id))
+
+  if (toInsert.length) {
+    const { error } = await supabase.from("hevy_treinos").insert(toInsert)
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error(
+          "Há treinos antigos no banco sem user_id. Adicione SUPABASE_SERVICE_ROLE_KEY no .env.local (Supabase → Settings → API → service_role) e tente de novo."
+        )
+      }
+      throw error
+    }
   }
 
-  const { error } = await supabase.from("hevy_treinos").upsert(rows, {
-    onConflict: "id",
-  })
+  if (toUpdate.length) {
+    const { error } = await supabase
+      .from("hevy_treinos")
+      .upsert(toUpdate, { onConflict: "id" })
 
-  if (error) throw error
+    if (error) throw error
+  }
+}
+
+async function upsertHevyWorkouts(
+  rows: ReturnType<typeof mapHevyWorkoutToRow>[],
+  userId: string,
+  sessionSupabase: ServerSupabaseClient
+) {
+  const serviceSupabase = createServiceSupabase()
+
+  if (serviceSupabase) {
+    const { error } = await serviceSupabase.from("hevy_treinos").upsert(
+      rows.map((row) => ({ ...row, user_id: userId })),
+      { onConflict: "id" }
+    )
+    if (error) throw error
+    return
+  }
+
+  await upsertHevyWorkoutsWithSession(rows, userId, sessionSupabase)
 }
 
 export async function syncHevyData(
-  maxPages = 5
+  maxPages = 20
 ): Promise<SyncActionResult> {
+  const auth = await requireAuth()
+  if (!auth.user) {
+    return { success: false, error: auth.error }
+  }
+
   const apiKey = getHevyApiKey()
 
   if (!apiKey) {
@@ -282,7 +336,7 @@ export async function syncHevyData(
       const { workouts, pageCount } = await fetchHevyWorkoutsPage(
         apiKey,
         page,
-        50
+        HEVY_MAX_PAGE_SIZE
       )
 
       for (const workout of workouts) {
@@ -299,7 +353,7 @@ export async function syncHevyData(
       }
     }
 
-    await upsertHevyWorkouts(allRows)
+    await upsertHevyWorkouts(allRows, auth.user.id, auth.supabase)
 
     revalidatePath("/", "layout")
     revalidatePath("/treinos")
@@ -312,9 +366,23 @@ export async function syncHevyData(
     }
   } catch (error) {
     console.error("[syncHevyData]", error)
+    const detail =
+      error instanceof Error && error.message
+        ? error.message
+        : "Erro desconhecido."
+
+    if (
+      detail.includes("row-level security") ||
+      detail.includes("SUPABASE_SERVICE_ROLE_KEY")
+    ) {
+      return { success: false, error: detail }
+    }
+
     return {
       success: false,
-      error: "Não foi possível sincronizar treinos do Hevy.",
+      error: detail.startsWith("Não foi possível")
+        ? detail
+        : `Não foi possível sincronizar treinos do Hevy. ${detail}`,
     }
   }
 }

@@ -31,14 +31,18 @@ export type HevyDbRow = {
 
 const HEVY_API_BASE = "https://api.hevyapp.com"
 
+/** Máximo permitido pela API Hevy (v1/workouts). */
+export const HEVY_MAX_PAGE_SIZE = 10
+
 export async function fetchHevyWorkoutsPage(
   apiKey: string,
   page = 1,
-  pageSize = 50
+  pageSize = HEVY_MAX_PAGE_SIZE
 ) {
+  const safePageSize = Math.min(Math.max(1, pageSize), HEVY_MAX_PAGE_SIZE)
   const url = new URL(`${HEVY_API_BASE}/v1/workouts`)
   url.searchParams.set("page", String(page))
-  url.searchParams.set("pageSize", String(pageSize))
+  url.searchParams.set("pageSize", String(safePageSize))
 
   const response = await fetch(url, {
     headers: {
@@ -50,9 +54,24 @@ export async function fetchHevyWorkoutsPage(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "")
-    throw new Error(
-      text || `Hevy API respondeu com status ${response.status}.`
-    )
+    let message = text || `Hevy API respondeu com status ${response.status}.`
+
+    try {
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error === "InvalidApiKey") {
+        message =
+          "Chave Hevy inválida. Gere uma nova em Hevy → Settings → Developer → API Key."
+      } else if (parsed.error) {
+        message = parsed.error
+      }
+    } catch {
+      if (text === "InvalidApiKey") {
+        message =
+          "Chave Hevy inválida. Gere uma nova em Hevy → Settings → Developer → API Key."
+      }
+    }
+
+    throw new Error(message)
   }
 
   const payload = (await response.json()) as {

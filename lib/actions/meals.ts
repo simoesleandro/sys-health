@@ -116,6 +116,13 @@ export async function deleteMeal(id: number) {
   return { success: true as const }
 }
 
+export async function deleteMealFromForm(formData: FormData) {
+  const mealId = Number(formData.get("mealId"))
+  if (!Number.isFinite(mealId) || mealId <= 0) return
+
+  await deleteMeal(mealId)
+}
+
 export type MealPickerItem = {
   id: number
   categoria: string

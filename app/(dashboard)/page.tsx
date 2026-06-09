@@ -2,6 +2,7 @@ import { Suspense } from "react"
 
 import { BiometrySection } from "@/components/dashboard/biometry-section"
 import { BiometrySectionSkeleton } from "@/components/dashboard/biometry-section-skeleton"
+import { CalendarAgendaPanel } from "@/components/dashboard/calendar-agenda-panel"
 import { ChartsSection } from "@/components/dashboard/charts-section"
 import { ChartsSectionSkeleton } from "@/components/dashboard/charts-section-skeleton"
 import { DashboardSummary } from "@/components/dashboard/dashboard-summary"
@@ -14,7 +15,6 @@ import { PageHeader } from "@/components/layout/page-header"
 import { SyncStatusIndicatorsLoader } from "@/components/layout/sync-status-indicators"
 import { PageShell } from "@/components/layout/page-shell"
 import { SectionHeader } from "@/components/layout/section-header"
-import { NeonCard } from "@/components/ui/neon-card"
 import { Skeleton } from "@/components/ui/skeleton"
 
 function SummarySkeleton() {
@@ -86,14 +86,17 @@ export default function HojePage() {
           </Suspense>
         }
         agendaSlot={
-          <NeonCard accent="magenta" className="px-6 py-10 text-center">
-            <p className="neon-section-title">Agenda</p>
-            <p className="mt-3 text-sm text-slate-400">
-              Google Calendar ainda não está integrado nesta versão web. A
-              sincronização existia apenas no app legado (Streamlit) e será
-              adicionada em uma próxima atualização.
-            </p>
-          </NeonCard>
+          <Suspense
+            fallback={
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-8 w-48 rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+            }
+          >
+            <CalendarAgendaPanel />
+          </Suspense>
         }
       />
 

@@ -1,15 +1,14 @@
 "use client"
 
 import { useQuickModals } from "@/components/modals/quick-modals-context"
+import { deleteMealFromForm } from "@/lib/actions/meals"
 
 export function MealCardActions({
   mealId,
   categoria,
-  deleteFormAction,
 }: {
   mealId: number
   categoria: string
-  deleteFormAction: (formData: FormData) => Promise<void>
 }) {
   const { openEditMeal } = useQuickModals()
 
@@ -22,7 +21,7 @@ export function MealCardActions({
       >
         Editar
       </button>
-      <form action={deleteFormAction}>
+      <form action={deleteMealFromForm}>
         <input type="hidden" name="mealId" value={mealId} />
         <button
           type="submit"

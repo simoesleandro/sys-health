@@ -1,21 +1,11 @@
 import { MealCardActions } from "@/components/dashboard/meal-card-actions"
 import { MealMacroBadges } from "@/components/dashboard/meal-macro-badges"
 import { NeonCard } from "@/components/ui/neon-card"
-import { deleteMeal } from "@/lib/actions/meals"
 import {
   formatComponentQuantity,
   formatMealTimeBrt,
   getTodayMeals,
 } from "@/lib/data"
-
-async function deleteMealFromForm(formData: FormData) {
-  "use server"
-
-  const mealId = Number(formData.get("mealId"))
-  if (!Number.isFinite(mealId) || mealId <= 0) return
-
-  await deleteMeal(mealId)
-}
 
 function MealCard({
   mealId,
@@ -47,11 +37,7 @@ function MealCard({
             {categoria}
           </span>
         </div>
-        <MealCardActions
-          mealId={mealId}
-          categoria={categoria}
-          deleteFormAction={deleteMealFromForm}
-        />
+        <MealCardActions mealId={mealId} categoria={categoria} />
       </div>
 
       <div className="px-4 py-3">
