@@ -48,9 +48,10 @@ Web dashboard for **SYS.HEALTH** — a personal health & performance ecosystem. 
 | **Workouts** | `/treinos` | Strength (Hevy) and detailed cardio (Zepp) |
 | **History** | `/historico` | Day-by-day summary |
 | **Medication** | `/medicacao` | Daily medication checklist |
-| **Bowel** | `/evacuacao` | Bristol scale tracker |
+| **Bowel** | `/evacuacao` | Bristol scale — summary cards, register & history modals |
 | **Biometrics** | `/biometria` | Weight and body measurements |
 | **Food bank** | `/banco-alimentos` | Favorite foods CRUD |
+| **Settings** | `/configuracoes` | Per-user nutrition goals and supplements |
 | **AI Coach** | `/ia-coach` | Health-context chat (Gemini) |
 
 ### Integrations
@@ -58,7 +59,7 @@ Web dashboard for **SYS.HEALTH** — a personal health & performance ecosystem. 
 - **Supabase** — PostgreSQL source of truth (`refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`)
 - **Zepp / Amazfit** — daily summary + run workouts via Server Actions
 - **Hevy** — strength training (sync in progress)
-- **Google Gemini** — AI coach with health context
+- **Google Gemini** — AI coach, meal analysis by text/photo (manual review before save)
 
 ---
 
@@ -95,11 +96,9 @@ Copy `.env.example` to `.env.local` and fill in your values (**never commit** `.
 cp .env.example .env.local
 ```
 
-Run the Zepp workouts migration in Supabase:
+Apply SQL migrations in Supabase (SQL Editor), in order under `supabase/migrations/`.
 
-```sql
--- see supabase/migrations/20260608_amazfit_workouts.sql
-```
+**Gemini:** set `GEMINI_API_KEY` in `.env.local` for dev and in **Vercel → Environment Variables** for production (not in Supabase). Requires prepaid credits on [Google AI Studio](https://aistudio.google.com).
 
 ---
 

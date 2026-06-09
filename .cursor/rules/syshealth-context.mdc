@@ -6,7 +6,8 @@ alwaysApply: true
 # SYS.HEALTH — Memória do Projeto
 
 ## Repositório e docs
-- **GitHub:** https://github.com/simoesleandro/sys-health
+- **GitHub:** https://github.com/simoesleandro/sys-health (branch `master`)
+- **Produção:** https://sys-health.vercel.app
 - **README:** `README.md` (inglês, vitrine) + `README.pt-BR.md` (português)
 - **Guia completo (PT):** `GUIA-DO-PROJETO.md`
 - **Env template:** `.env.example` — **nunca** commitar `.env.local`
@@ -14,52 +15,93 @@ alwaysApply: true
 
 ## Stack
 - Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, Supabase
-- Dev/prod local: porta **3535** (`npm run dev` / `npm run build; npm run start`)
+- Dev/prod local: porta **3535** (`npm run dev` usa `--webpack`; `npm run build; npm run start`)
 - Design: **Neon Frosted Glass** (`lib/neon-theme.ts`, cards `bg-zinc-950/50 backdrop-blur-md`)
-- Deploy: **Vercel** (projeto `sys-health`, preset Next.js, root `./`)
+- Deploy: **Vercel** — projeto `sys-health`, GitHub integrado (push `master` → deploy Production automático)
 
 ## Dados (Supabase)
-- `refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`, `alimentos_favoritos`
-- `amazfit_workouts` — treinos Zepp detalhados (PK: `track_id`); migration em `supabase/migrations/20260608_amazfit_workouts.sql`
-- `amazfit_dados` PK: `data_hora` (`YYYY-MM-DD 00:00:00` = dia BRT)
+- `refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`, `alimentos_favoritos`, `evacuacoes`
+- `amazfit_workouts` — treinos Zepp detalhados (PK: `track_id`); migration `supabase/migrations/20260608_amazfit_workouts.sql`
+- `amazfit_dados` PK: `data_hora` (`YYYY-MM-DD 00:00:00` = dia BRT); colunas `hrv_ms`, `pai`
 
-## Env (local + Vercel)
+## Env (local + Vercel Production)
 **Obrigatórias para dados reais:**
-- `NEXT_PUBLIC_SUPABASE_URL` — formato `https://xxxxxxxx.supabase.co` (URL completa, sem placeholder)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — legacy `eyJ...` (anon) ou nova `sb_publishable_...`
-- `SUPABASE_SERVICE_ROLE_KEY` — legacy `eyJ...` (service_role) ou nova `sb_secret_...` (Supabase → Settings → API Keys → Legacy ou Secret keys)
+- `NEXT_PUBLIC_SUPABASE_URL` — `https://xxxxxxxx.supabase.co` (URL completa)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — legacy `eyJ...` ou `sb_publishable_...`
+- `SUPABASE_SERVICE_ROLE_KEY` — legacy `eyJ...` ou `sb_secret_...`
 
-**Opcionais / integrações:**
+**Integrações:**
 - `ZEPP_APP_TOKEN`, `ZEPP_USER_ID`, `ZEPP_BEARER_TOKEN` (opcional)
-- `HEVY_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`
+- `HEVY_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-2.5-flash`)
 
-**Supabase client:** `lib/supabase/server.ts` — valida URL antes de `createClient`; inválida → `null` (evita crash no build Vercel).
+**Supabase client:** `lib/supabase/server.ts` — valida URL antes de `createClient`; inválida → `null`.
 
 ## Sync Zepp (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
-- `syncZeppData()` → resumo diário `band_data.json` → `amazfit_dados`
-- Encadeia `syncZeppWorkouts()` → `history.json` → `amazfit_workouts`
-- Botão **Sincronizar:** `components/layout/zepp-sync-button.tsx` (header + aba Cardio)
-- Pace: **ignorar** `avg_pace` da API; calcular `(duracao_minutos * 60) / distancia_km` em `lib/treinos.ts`
+- `syncZeppData()` → `band_data.json` (summary) → `amazfit_dados` + encadeia `syncZeppWorkouts()`
+- **HRV:** evento Zepp `readiness` → campo `sleepHRV` (ms); busca com lookback 7 dias; fallback no dia atual = última leitura disponível
+- **PAI:** evento `PaiHealthInfo` → campo `totalPai` (acumulado); endpoint `/users/{id}/events`
+- Se API não traz HRV/PAI, preserva valores existentes no DB (ex. registo manual Telegram `/hrv` `/pai`)
+- Pace: ignorar `avg_pace` da API; calcular em `lib/treinos.ts`
+- Botão **Sincronizar:** `components/layout/zepp-sync-button.tsx`
 - `syncHevyData()` — placeholder
 
-## Fetch / histórico (`lib/data.ts`)
-- `getWeightHistory()` — **todo** o histórico de peso, sem filtro de data, paginação 1000
-- `getMeasurementsHistory()` — desde `2026-04-01`
-- `getZeppRunningSessions()` — prioriza `amazfit_workouts`, fallback `amazfit_dados`
-- Timestamps sem TZ → **BRT** (`parseBrtDataHoraMs`)
-- Status header: verde se sync **hoje/ontem BRT** ou **48h** (`SYNC_FRESHNESS_HOURS`)
+## Suplementação (`lib/supplements.ts`, `components/suplementacao/`)
+- Grid dashboard **só visual** (`supplement-grid.tsx`) — sem toggle no card
+- Registo apenas via modal **+ Suplementos** (`supplement-modal.tsx` → `registerSupplements`)
+- Whey 2x/dia: `whey-1` e `whey-2` com `label` e `descricao` únicos (evita marcar ambos no mesmo registo)
+- Matching em `mealMatchesSupplement()` por `descricao` ou `label` único
 
-## UI já feita
-- Suplementos: optimistic UI; Whey 2x (`whey-1`, `whey-2`)
-- Bristol evacuação; tendências 14d; composição corporal com deltas reais
-- **Nunca** importar `lib/data.ts` em Client Components — usar `*-shared.ts`
+## Coach IA (`app/api/chat/route.ts`, `lib/coach.ts`, `lib/coach-errors.ts`)
+- `getCoachHealthContext()` — hoje + ontem: nutrição, wearable (passos, sono, HRV, PAI), balanço, evacuação Bristol, treinos Hevy/Zepp
+- Erros amigáveis no chat quando `GEMINI_API_KEY` falta ou quota esgotada
+- Página: `/ia-coach`
+
+## Banco de alimentos (`/banco-alimentos`)
+- `FoodBankManager` — busca por nome (filtro client-side, ignora acentos)
+- Editar/Apagar sempre visíveis (mobile e desktop); CRUD em `lib/actions/foods.ts`
+
+## Fetch / histórico (`lib/data.ts`)
+- `getWeightHistory()` — histórico completo, paginação 1000
+- `getZeppRunningSessions()` — prioriza `amazfit_workouts`, fallback `amazfit_dados`
+- Timestamps sem TZ → **BRT** (`parseBrtDataHoraMs`, `America/Sao_Paulo`)
+- Status header: verde se sync hoje/ontem BRT ou **48h** (`SYNC_FRESHNESS_HOURS`)
+
+## Refeições (`components/modals/meal-modal.tsx`)
+- Abas **Manual** | **Texto IA** | **Foto IA** (`/api/meals/analyze`, Gemini)
+- Criar alimento inline se busca vazia; suplementos do usuário no mesmo carrinho
+- Histórico opcional em `ia_analises_refeicao` (migration `20260611_meal_ia_analyses.sql`)
+- Erros Gemini: `lib/gemini-errors.ts` (créditos prepay, quota, chave)
+
+## Evacuação (`/evacuacao`)
+- Cards resumo (último dia, média Bristol 14d, desde a última)
+- Botões **Registrar** e **Histórico de evacuações** (modais)
+
+## Configurações (`/configuracoes`)
+- Metas em `metas_usuario`; suplementos em `suplementos_config` (migration `20260610_user_settings.sql`)
+- `lib/user-settings.ts` — fallback `lib/goals.ts` / defaults
+
+## Auth (Sprint 1)
+- `/login`, `/registro`, `proxy.ts`, RLS por `user_id` (`20260609_user_auth_rls.sql`)
+- `createServerSupabase()` com sessão (`@supabase/ssr`)
+
+## Sprints concluídos (jun/2026)
+| # | Tema | Status |
+|---|------|--------|
+| 0–1 | Editar refeições + auth/RLS | ✅ `ead4572` |
+| 2 | Painel configurações (metas + suplementos) | ✅ `7cd17d0` |
+| 3 | Evacuação (resumo + modais) | ✅ `237e9cf` |
+| 4 | Refeição inline + suplementos no modal | ✅ `b76ec04` |
+| 5 | IA refeição texto/foto | ✅ `19fffb3` |
+| 6 | Docs/env + polish | ✅ Sprint 6 |
+| — | Fix créditos Gemini esgotados | ✅ `01c5791` |
 
 ## Deploy Vercel — checklist
-1. Environment Variables: Production + Preview
-2. `NEXT_PUBLIC_SUPABASE_URL` deve ser HTTPS válida (erro comum: URL incompleta → build falha em `/banco-alimentos`)
+1. Env em **Production** (e Preview se necessário)
+2. URL Supabase completa (build falha em `/banco-alimentos` se inválida)
 3. Após alterar env: **Redeploy**
-4. Conta Vercel pode pedir 2FA — pode **Skip** e configurar depois
+4. Push `master` → deploy automático (~1 min)
 
 ## Padrões
-- Server Components + Server Actions; BRT `America/Sao_Paulo`
+- Server Components + Server Actions; **nunca** importar `lib/data.ts` em Client Components
 - Commits/README vitrine em **inglês**; docs internas podem ser PT
+- Metas: `lib/goals.ts` — TMB 1863, proteína 190g, água 3.5L, PAI meta 100
