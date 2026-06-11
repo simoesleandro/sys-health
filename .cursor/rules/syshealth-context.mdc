@@ -11,7 +11,7 @@ alwaysApply: true
 - **README:** `README.md` (inglês) + `README.pt-BR.md` (português)
 - **Guia completo (PT):** `GUIA-DO-PROJETO.md`
 - **Env template:** `.env.example` — **nunca** commitar `.env.local`
-- **Último deploy:** `b02b46f` (jun/2026) — push `master` → Vercel Production automático
+- **Último deploy:** `de65c3b` (jun/2026) — push `master` → Vercel Production automático
 
 ## Stack
 - Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, Supabase, **googleapis** (Calendar)
@@ -24,7 +24,7 @@ alwaysApply: true
 |----------|-----|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Login + leitura (obrigatórias) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sync Hevy (treinos legados sem `user_id`) |
-| `ZEPP_APP_TOKEN`, `ZEPP_USER_ID` | Sync Amazfit/Zepp |
+| `ZEPP_BEARER_TOKEN` (prioridade) ou `ZEPP_APP_TOKEN`, `ZEPP_USER_ID` | Sync Amazfit/Zepp |
 | `HEVY_API_KEY` | Sync Hevy |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Agenda Google Calendar |
 | `GOOGLE_CALENDAR_ID` | Opcional, default `primary` |
@@ -35,11 +35,13 @@ alwaysApply: true
 - RLS por `user_id` — trigger `set_row_user_id()` em inserts
 - **Removido:** `/medicacao` — tabelas `medicamentos_ativos` / `logs_medicacao` não existem
 
-## Sync Zepp (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
-- `syncZeppData()` → `amazfit_dados` + `syncZeppWorkouts()`
+## Sync Zepp (`lib/actions/sync.ts`, `lib/zepp-api.ts`, `lib/sync-env.ts`)
+- `syncZeppData()` / `syncZeppWorkouts()` exigem `requireAuth()`; upsert com `user_id`
+- Token: `getZeppBearerToken()` → `ZEPP_BEARER_TOKEN` ou fallback `ZEPP_APP_TOKEN`
+- Service role limpa linhas legadas e faz upsert; erros da API propagam à UI (401 = token inválido)
 - Preserva HRV/PAI/sono no DB se API retorna 0
 - Sidebar: sono hoje = 0 → mostra **noite anterior**
-- Botão: `zepp-sync-button.tsx`
+- Botão: `zepp-sync-button.tsx` · Teste: `node scripts/test-zepp-fetch.mjs`
 
 ## Sync Hevy (`lib/hevy-api.ts`, `lib/actions/sync.ts`)
 - API: `GET /v1/workouts` — **`pageSize` máx. 10** (`HEVY_MAX_PAGE_SIZE`)
@@ -51,12 +53,22 @@ alwaysApply: true
 ## Google Calendar (`lib/google-calendar.ts`)
 - Eventos de **hoje BRT** na aba **Agenda** (Hoje) — somente leitura
 - `CalendarAgendaPanel` + `CalendarRefreshButton` → `refreshCalendarAgenda()`
-- Setup token: `node scripts/get-gcal-token.mjs`
-- Teste: `node scripts/test-gcal-fetch.mjs`
+- OAuth: cliente **Computador/Desktop** "Syshealth" no projeto Google **HealthOS** (tela pode mostrar HealthOS)
+- Setup token: `node scripts/get-gcal-token.mjs` (servidor local em `127.0.0.1:3030+`; porta 3000 bloqueada no Windows)
+- Teste: `node scripts/test-gcal-fetch.mjs` · Erro `invalid_grant` = renovar `GOOGLE_REFRESH_TOKEN` (local + Vercel)
+- Não usar `console.error` no fetch — evita overlay vermelho no dev; retorna `agenda.error` em PT
 
 ## Dashboard Hoje (`app/(dashboard)/page.tsx`)
 - Tabs: Nutrição · Wearable · **Agenda** (Google Calendar)
 - Refeições: `MealsList` com `MealCardActions` (Editar + Apagar)
+
+## Suplementação (`lib/supplements.ts`, `lib/actions/supplements.ts`)
+- Cadastro: só **produto + marca** (`supplement-form-modal.tsx`); sistema preenche dose/macros/cores
+- Doses diárias por **categoria** (`whey`=2/dia, creatina, pré-treino, etc.) — não Scoop 1/2 por produto
+- Categoria com >1 produto ou >1 dose → cards dinâmicos; sem consumo → card genérico da categoria
+- IDs: `supp-family:{categoria}:{slug}` (legado `whey-family:` compatível)
+- Bloqueio de duplicata em `createSupplementFromProduct` (`lib/actions/settings.ts`)
+- Grade: `buildSupplementGridItems` · Presets: `buildRegistrationPresets` em `lib/user-settings.ts`
 
 ## Outras páginas
 - **`/biometria`:** resumo + `MeasurementsHistoryTable`
@@ -69,18 +81,20 @@ alwaysApply: true
 - Erros Gemini: `lib/gemini-errors.ts`
 
 ## Auth
-- `/login`, `/registro`, `proxy.ts`, RLS (`20260609_user_auth_rls.sql`)
+- `/login`, `/registro`, `middleware.ts`, RLS (`20260609_user_auth_rls.sql`)
 
 ## Commits recentes (jun/2026)
 | Commit | Tema |
 |--------|------|
-| `c14bfa8` | Pré-publicação: medicação removida, histórico, biometria, Hevy/Zepp |
+| `de65c3b` | Suplementação por categoria, sync Zepp (token/auth/RLS), OAuth GCal (portas Windows) |
 | `b02b46f` | Google Calendar agenda, fix Hevy (pageSize+RLS), fix MealCardActions |
+| `c14bfa8` | Pré-publicação: medicação removida, histórico, biometria, Hevy/Zepp |
 
 ## Dev — armadilhas
 - **Não apagar `.next` com dev rodando** → 500 ENOENT. Parar dev → limpar → reiniciar.
 - Porta 3535 ocupada: `Get-NetTCPConnection -LocalPort 3535 | ... | Stop-Process`
 - Após alterar `.env.local`: reiniciar `npm run dev`
+- Google OAuth: se perdeu client secret → Google Cloud → Credentials → Syshealth → **Add secret** (valor só aparece uma vez)
 
 ## Vercel Production — checklist env
 `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `ZEPP_*`, `HEVY_API_KEY`, `GOOGLE_*`, `GEMINI_API_KEY`
