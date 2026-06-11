@@ -35,11 +35,13 @@ import {
 } from "@/lib/supabase/server"
 import { SYNC_FRESHNESS_HOURS } from "@/lib/sync-env"
 import {
-  WHEY_LEGACY_DESCRICAO,
+  buildSupplementGridItems,
   type SupplementGridItem,
-  type VisualSupplement,
 } from "@/lib/supplements"
-import { getActiveVisualSupplements, getUserNutritionGoals } from "@/lib/user-settings"
+import {
+  getUserNutritionGoals,
+  getUserSupplementConfigs,
+} from "@/lib/user-settings"
 import {
   formatWorkoutDateLabel,
   mapZeppRunningRow,
@@ -521,61 +523,15 @@ export const getTodayMeals = cache(async (): Promise<TodayMeal[]> => {
   }
 })
 
-function mealMatchesSupplement(meal: TodayMeal, preset: VisualSupplement) {
-  if (meal.descricao === preset.descricao) return true
-
-  return meal.componentes.some(
-    (component) =>
-      component.nome === preset.label || component.nome === preset.descricao
-  )
-}
-
-function assignLegacyWheySlot(
-  takenByPresetId: Map<string, number>,
-  mealId: number
-) {
-  if (!takenByPresetId.has("whey-1")) {
-    takenByPresetId.set("whey-1", mealId)
-    return
-  }
-  if (!takenByPresetId.has("whey-2")) {
-    takenByPresetId.set("whey-2", mealId)
-  }
-}
-
-export const getTodaySupplementGrid = cache(async () => {
-  const [meals, visualSupplements] = await Promise.all([
+export const getTodaySupplementGrid = cache(async (): Promise<
+  SupplementGridItem[]
+> => {
+  const [meals, configs] = await Promise.all([
     getTodayMeals(),
-    getActiveVisualSupplements(),
+    getUserSupplementConfigs(),
   ])
-  const takenByPresetId = new Map<string, number>()
 
-  for (const meal of meals) {
-    if (
-      meal.descricao === WHEY_LEGACY_DESCRICAO ||
-      (meal.componentes.some(
-        (component) => component.nome === "Whey Isolado Dux 30g"
-      ) &&
-        !meal.descricao.includes("Dose"))
-    ) {
-      assignLegacyWheySlot(takenByPresetId, meal.id)
-      continue
-    }
-
-    for (const preset of visualSupplements) {
-      if (takenByPresetId.has(preset.id)) continue
-      if (!mealMatchesSupplement(meal, preset)) continue
-      takenByPresetId.set(preset.id, meal.id)
-    }
-  }
-
-  return visualSupplements.map(
-    (preset): SupplementGridItem => ({
-      ...preset,
-      isTaken: takenByPresetId.has(preset.id),
-      mealId: takenByPresetId.get(preset.id) ?? null,
-    })
-  )
+  return buildSupplementGridItems(meals, configs)
 })
 
 const HISTORY_DAYS = 14

@@ -75,6 +75,17 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("ERRO:", error.message ?? error)
+  const message = error?.message ?? String(error)
+  console.error("ERRO:", message)
+
+  if (message.includes("invalid_grant")) {
+    console.error(
+      "\nO GOOGLE_REFRESH_TOKEN expirou ou foi revogado.\n" +
+        "1. node scripts/get-gcal-token.mjs\n" +
+        "2. Cole o novo GOOGLE_REFRESH_TOKEN no .env.local (e na Vercel, se for produção)\n" +
+        "3. Reinicie o servidor (npm run dev)"
+    )
+  }
+
   process.exit(1)
 })

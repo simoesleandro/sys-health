@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,34 +13,19 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  createSupplementConfig,
-  updateSupplementConfig,
+  createSupplementFromProduct,
+  updateSupplementProduct,
 } from "@/lib/actions/settings"
-import type { SupplementTheme } from "@/lib/supplements"
+import {
+  buildSupplementConfigsFromProduct,
+  detectSupplementKind,
+  getSupplementDisplayName,
+} from "@/lib/supplements"
 import type { UserSupplementConfig } from "@/lib/user-settings"
 
-const THEME_OPTIONS: SupplementTheme[] = [
-  "green",
-  "cyan",
-  "yellow",
-  "magenta",
-  "purple",
-  "orange",
-]
-
 const EMPTY_FORM = {
-  presetId: "",
   nome: "",
   marca: "",
-  dose: "",
-  corTema: "cyan" as SupplementTheme,
-  label: "",
-  descricao: "",
-  calorias: 0,
-  proteinas: 0,
-  carboidratos: 0,
-  gorduras: 0,
-  sortOrder: 0,
   ativo: true,
 }
 
@@ -59,22 +44,26 @@ export function SupplementFormModal({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const preview = useMemo(() => {
+    if (!form.nome.trim()) return null
+    const generated = buildSupplementConfigsFromProduct(form.nome, form.marca, {
+      existingPresetIds: [],
+      sortOrder: 0,
+    })
+    if (!generated.length) return null
+    const kind = detectSupplementKind(form.nome)
+    return {
+      kind,
+      slots: generated,
+    }
+  }, [form.nome, form.marca])
+
   useEffect(() => {
     if (!open) return
     if (editing) {
       setForm({
-        presetId: editing.id,
-        nome: editing.nome,
+        nome: getSupplementDisplayName(editing),
         marca: editing.marca,
-        dose: editing.dose,
-        corTema: editing.cor_tema,
-        label: editing.label,
-        descricao: editing.descricao,
-        calorias: editing.calorias,
-        proteinas: editing.proteinas,
-        carboidratos: editing.carboidratos,
-        gorduras: editing.gorduras,
-        sortOrder: editing.sortOrder,
         ativo: editing.ativo,
       })
     } else {
@@ -89,8 +78,8 @@ export function SupplementFormModal({
 
     startTransition(async () => {
       const result = editing
-        ? await updateSupplementConfig(editing.dbId, form)
-        : await createSupplementConfig(form)
+        ? await updateSupplementProduct(editing.dbId, form)
+        : await createSupplementFromProduct(form)
 
       if (!result.success) {
         setError(result.error)
@@ -111,146 +100,55 @@ export function SupplementFormModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="presetId">ID (slug)</Label>
-              <Input
-                id="presetId"
-                value={form.presetId}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, presetId: e.target.value }))
-                }
-                disabled={Boolean(editing)}
-                placeholder="ex: creatina"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sortOrder">Ordem</Label>
-              <Input
-                id="sortOrder"
-                type="number"
-                min={0}
-                value={form.sortOrder}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    sortOrder: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-slate-400">
+            Informe só o produto e a marca. Dose, macros, cores e doses por dia
+            são preenchidos automaticamente.
+          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="nome">Nome do produto</Label>
+            <Input
+              id="nome"
+              value={form.nome}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, nome: e.target.value }))
+              }
+              placeholder="Ex: Whey Protein Isolado, Creatina, Ômega 3"
+              required
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome</Label>
-              <Input
-                id="nome"
-                value={form.nome}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, nome: e.target.value }))
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="marca">Marca</Label>
-              <Input
-                id="marca"
-                value={form.marca}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, marca: e.target.value }))
-                }
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="marca">Marca</Label>
+            <Input
+              id="marca"
+              value={form.marca}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, marca: e.target.value }))
+              }
+              placeholder="Ex: Dux, Max Titanium"
+              required
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="dose">Dose</Label>
-              <Input
-                id="dose"
-                value={form.dose}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, dose: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="corTema">Tema</Label>
-              <select
-                id="corTema"
-                value={form.corTema}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    corTema: e.target.value as SupplementTheme,
-                  }))
-                }
-                className="flex h-9 w-full rounded-md border border-zinc-800/70 bg-black/40 px-3 text-sm"
-              >
-                {THEME_OPTIONS.map((theme) => (
-                  <option key={theme} value={theme}>
-                    {theme}
-                  </option>
+          {preview ? (
+            <div className="rounded-lg border border-zinc-800/60 bg-black/30 px-3 py-3 text-sm text-slate-300">
+              <p className="font-medium text-white">Pré-visualização automática</p>
+              <ul className="mt-2 space-y-1 text-xs text-slate-400">
+                {preview.slots.map((slot) => (
+                  <li key={slot.presetId}>
+                    {slot.dose} · {slot.calorias} kcal · P {slot.proteinas}g
+                  </li>
                 ))}
-              </select>
+              </ul>
+              {preview.kind.startsWith("whey") ? (
+                <p className="mt-2 text-xs text-brand-green">
+                  Whey: 2 doses/dia (Scoop 1 e Scoop 2) criadas automaticamente.
+                </p>
+              ) : null}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="label">Rótulo (registro)</Label>
-            <Input
-              id="label"
-              value={form.label}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, label: e.target.value }))
-              }
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="descricao">Descrição</Label>
-            <Input
-              id="descricao"
-              value={form.descricao}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, descricao: e.target.value }))
-              }
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {(
-              [
-                ["calorias", "kcal"],
-                ["proteinas", "prot"],
-                ["carboidratos", "carb"],
-                ["gorduras", "gord"],
-              ] as const
-            ).map(([key, short]) => (
-              <div key={key} className="space-y-2">
-                <Label htmlFor={key}>{short}</Label>
-                <Input
-                  id={key}
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  value={form[key]}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      [key]: Number(e.target.value),
-                    }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
+          ) : null}
 
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input

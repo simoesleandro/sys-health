@@ -37,6 +37,20 @@ function formatEventTime(iso: string, allDay: boolean) {
   }).format(new Date(iso))
 }
 
+function formatCalendarFetchError(error: unknown): string {
+  const raw =
+    error instanceof Error ? error.message : "Erro ao buscar agenda."
+
+  if (raw.includes("invalid_grant")) {
+    return (
+      "Token do Google Calendar expirou ou foi revogado. Rode node scripts/get-gcal-token.mjs, " +
+      "atualize GOOGLE_REFRESH_TOKEN no .env.local (e na Vercel em produção) e reinicie o servidor."
+    )
+  }
+
+  return raw
+}
+
 function mapCalendarEvent(
   event: {
     id?: string | null
@@ -107,9 +121,7 @@ async function fetchTodayCalendarEvents(): Promise<CalendarAgendaResult> {
       error: null,
     }
   } catch (error) {
-    console.error("[fetchTodayCalendarEvents]", error)
-    const message =
-      error instanceof Error ? error.message : "Erro ao buscar agenda."
+    const message = formatCalendarFetchError(error)
 
     return {
       configured: true,

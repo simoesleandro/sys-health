@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
-import { getBrtTodayUtcBounds } from "@/lib/data"
+import { getBrtTodayUtcBounds } from "@/lib/brt-time"
 import { requireAuth } from "@/lib/supabase/auth"
 import {
+  createServerSupabase,
   createServiceSupabase,
   type ServerSupabaseClient,
 } from "@/lib/supabase/server"
@@ -14,7 +15,6 @@ import {
   mapHevyWorkoutToRow,
 } from "@/lib/hevy-api"
 import { getHevyApiKey, getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
-import { createServerSupabase } from "@/lib/supabase/server"
 import {
   fetchZeppBandSummary,
   fetchZeppHrvPaiForDay,
@@ -36,14 +36,16 @@ type SyncZeppWorkoutsOptions = {
   skipRevalidate?: boolean
 }
 
-async function fetchExistingZeppRow(dayString: string) {
-  const supabase = await createServerSupabase()
-  if (!supabase) return {}
-
+async function fetchExistingZeppRow(
+  dayString: string,
+  supabase: ServerSupabaseClient,
+  userId: string
+) {
   const { data } = await supabase
     .from("amazfit_dados")
     .select("hrv_ms, pai, sono_total_min, sono_profundo_min")
     .eq("data_hora", `${dayString} 00:00:00`)
+    .eq("user_id", userId)
     .maybeSingle()
 
   return {
@@ -56,22 +58,48 @@ async function fetchExistingZeppRow(dayString: string) {
   }
 }
 
-async function saveZeppRow(row: ZeppAmazfitRow) {
-  const supabase = await createServerSupabase()
+async function saveZeppRow(row: ZeppAmazfitRow, userId: string) {
+  const sessionSupabase = await createServerSupabase()
+  const serviceSupabase = createServiceSupabase()
+  const supabase = serviceSupabase ?? sessionSupabase
+
   if (!supabase) {
     throw new Error("Supabase não configurado.")
   }
 
-  const { error: deleteError } = await supabase
+  const payload = { ...row, user_id: userId }
+
+  if (serviceSupabase) {
+    const { error: deleteError } = await serviceSupabase
+      .from("amazfit_dados")
+      .delete()
+      .eq("data_hora", row.data_hora)
+
+    if (deleteError) throw deleteError
+
+    const { error: upsertError } = await serviceSupabase
+      .from("amazfit_dados")
+      .upsert(payload, { onConflict: "data_hora" })
+
+    if (upsertError) throw upsertError
+    return
+  }
+
+  if (!sessionSupabase) {
+    throw new Error("Supabase não configurado.")
+  }
+
+  const { error: deleteError } = await sessionSupabase
     .from("amazfit_dados")
     .delete()
     .eq("data_hora", row.data_hora)
+    .eq("user_id", userId)
 
   if (deleteError) throw deleteError
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await sessionSupabase
     .from("amazfit_dados")
-    .insert(row)
+    .insert(payload)
 
   if (insertError) throw insertError
 }
@@ -79,25 +107,37 @@ async function saveZeppRow(row: ZeppAmazfitRow) {
 export async function syncZeppData(
   dayString?: string
 ): Promise<SyncActionResult> {
-  const day = dayString ?? getBrtTodayUtcBounds().brtDate
-  const appToken = getZeppAppToken()
-  const userId = getZeppUserId()
-
-  if (!appToken) {
-    return { success: false, error: "ZEPP_APP_TOKEN não configurado." }
+  const auth = await requireAuth()
+  if (!auth.user) {
+    return { success: false, error: auth.error }
   }
 
-  if (!userId) {
+  const day = dayString ?? getBrtTodayUtcBounds().brtDate
+  const appToken = getZeppAppToken()
+  const zeppUserId = getZeppUserId()
+
+  if (!appToken) {
+    return {
+      success: false,
+      error: "ZEPP_APP_TOKEN (ou ZEPP_BEARER_TOKEN) não configurado.",
+    }
+  }
+
+  if (!zeppUserId) {
     return { success: false, error: "ZEPP_USER_ID não configurado." }
   }
 
   try {
-    console.log("[syncZeppData] iniciando fetch Zepp:", { day, userId })
+    console.log("[syncZeppData] iniciando fetch Zepp:", {
+      day,
+      zeppUserId,
+      authUserId: auth.user.id,
+    })
 
     const [summary, hrvPaiFromApi, existing] = await Promise.all([
-      fetchZeppBandSummary(day, appToken, userId),
-      fetchZeppHrvPaiForDay(day, appToken, userId),
-      fetchExistingZeppRow(day),
+      fetchZeppBandSummary(day, appToken, zeppUserId),
+      fetchZeppHrvPaiForDay(day, appToken, zeppUserId),
+      fetchExistingZeppRow(day, auth.supabase, auth.user.id),
     ])
 
     if (!summary || Object.keys(summary).length === 0) {
@@ -119,12 +159,13 @@ export async function syncZeppData(
       preservedFromDb: existing,
     })
 
-    await saveZeppRow(row)
+    await saveZeppRow(row, auth.user.id)
 
     console.log("[syncZeppData] resumo salvo — iniciando sync de treinos detalhados")
     const workoutsResult = await syncZeppWorkouts(90, {
       allowEmpty: true,
       skipRevalidate: true,
+      userId: auth.user.id,
     })
 
     revalidatePath("/", "layout")
@@ -151,45 +192,69 @@ export async function syncZeppData(
     }
   } catch (error) {
     console.error("[syncZeppData]", error)
+    const detail =
+      error instanceof Error && error.message ? error.message : null
     return {
       success: false,
-      error: "Não foi possível sincronizar dados do Zepp/Amazfit.",
+      error:
+        detail ??
+        "Não foi possível sincronizar dados do Zepp/Amazfit.",
     }
   }
 }
 
-async function upsertZeppWorkouts(rows: ZeppWorkoutRow[]) {
-  const supabase = await createServerSupabase()
+async function upsertZeppWorkouts(rows: ZeppWorkoutRow[], userId: string) {
+  const sessionSupabase = await createServerSupabase()
+  const serviceSupabase = createServiceSupabase()
+  const supabase = serviceSupabase ?? sessionSupabase
+
   if (!supabase) {
     throw new Error("Supabase não configurado.")
   }
 
+  const payload = rows.map((row) => ({
+    ...row,
+    user_id: userId,
+    updated_at: new Date().toISOString(),
+  }))
+
   const { error } = await supabase
     .from("amazfit_workouts")
-    .upsert(
-      rows.map((row) => ({
-        ...row,
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: "track_id" }
-    )
+    .upsert(payload, { onConflict: "track_id" })
 
   if (error) throw error
 }
 
 export async function syncZeppWorkouts(
   daysBack = 90,
-  options: SyncZeppWorkoutsOptions = {}
+  options: SyncZeppWorkoutsOptions & { userId?: string } = {}
 ): Promise<SyncActionResult> {
-  const { allowEmpty = false, skipRevalidate = false } = options
-  const appToken = getZeppAppToken()
-  const userId = getZeppUserId()
+  const { allowEmpty = false, skipRevalidate = false, userId: userIdOption } =
+    options
 
-  if (!appToken) {
-    return { success: false, error: "ZEPP_APP_TOKEN não configurado." }
+  const auth = userIdOption
+    ? null
+    : await requireAuth()
+  const authUserId = userIdOption ?? auth?.user?.id
+
+  if (!authUserId) {
+    return {
+      success: false,
+      error: auth?.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
-  if (!userId) {
+  const appToken = getZeppAppToken()
+  const zeppUserId = getZeppUserId()
+
+  if (!appToken) {
+    return {
+      success: false,
+      error: "ZEPP_APP_TOKEN (ou ZEPP_BEARER_TOKEN) não configurado.",
+    }
+  }
+
+  if (!zeppUserId) {
     return { success: false, error: "ZEPP_USER_ID não configurado." }
   }
 
@@ -198,7 +263,8 @@ export async function syncZeppWorkouts(
     const startTrackId = stopTrackId - daysBack * 24 * 60 * 60
 
     console.log("[syncZeppWorkouts] fetch Zepp history:", {
-      userId,
+      zeppUserId,
+      authUserId,
       startTrackId,
       stopTrackId,
       daysBack,
@@ -206,7 +272,7 @@ export async function syncZeppWorkouts(
 
     const summary = await fetchZeppWorkoutHistory(
       appToken,
-      userId,
+      zeppUserId,
       startTrackId,
       stopTrackId
     )
@@ -235,7 +301,7 @@ export async function syncZeppWorkouts(
       }
     }
 
-    await upsertZeppWorkouts(rows)
+    await upsertZeppWorkouts(rows, authUserId)
 
     if (!skipRevalidate) {
       revalidatePath("/", "layout")
@@ -250,9 +316,13 @@ export async function syncZeppWorkouts(
     }
   } catch (error) {
     console.error("[syncZeppWorkouts]", error)
+    const detail =
+      error instanceof Error && error.message ? error.message : null
     return {
       success: false,
-      error: "Não foi possível sincronizar treinos detalhados do Zepp.",
+      error:
+        detail ??
+        "Não foi possível sincronizar treinos detalhados do Zepp.",
     }
   }
 }

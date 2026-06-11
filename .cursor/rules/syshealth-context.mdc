@@ -8,101 +8,84 @@ alwaysApply: true
 ## Repositório e docs
 - **GitHub:** https://github.com/simoesleandro/sys-health (branch `master`)
 - **Produção:** https://sys-health.vercel.app
-- **README:** `README.md` (inglês, vitrine) + `README.pt-BR.md` (português)
+- **README:** `README.md` (inglês) + `README.pt-BR.md` (português)
 - **Guia completo (PT):** `GUIA-DO-PROJETO.md`
 - **Env template:** `.env.example` — **nunca** commitar `.env.local`
-- **Último deploy:** `c14bfa8` (jun/2026) — push `master` → Vercel Production automático
+- **Último deploy:** `b02b46f` (jun/2026) — push `master` → Vercel Production automático
 
 ## Stack
-- Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, Supabase
-- Dev/prod local: porta **3535** (`npm run dev` usa `--webpack`; `npm run build; npm run start`)
-- Design: **Neon Frosted Glass** (`lib/neon-theme.ts`, cards `bg-zinc-950/50 backdrop-blur-md`)
-- Deploy: **Vercel** — projeto `sys-health`, GitHub integrado
-
-## Dados (Supabase)
-- `refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`, `alimentos_favoritos`, `evacuacoes`
-- `ia_analises_refeicao` — histórico opcional análises IA refeição (`20260611_meal_ia_analyses.sql`)
-- `amazfit_workouts` PK: `track_id`; `amazfit_dados` PK: `data_hora` (`YYYY-MM-DD 00:00:00` = dia BRT)
-- **Removido:** seção medicação — tabelas `medicamentos_ativos` / `logs_medicacao` **não existem** no Supabase
+- Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, Supabase, **googleapis** (Calendar)
+- Dev/prod local: porta **3535** (`npm run dev` usa `--webpack`)
+- Design: **Neon Frosted Glass** (`lib/neon-theme.ts`)
+- Deploy: **Vercel** — projeto `sys-health`
 
 ## Env (local + Vercel Production)
-**Obrigatórias:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-**Integrações:** `ZEPP_APP_TOKEN`, `ZEPP_USER_ID`, `ZEPP_BEARER_TOKEN` (opcional), `HEVY_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-2.5-flash`)
-**Supabase client:** `lib/supabase/server.ts` — URL inválida → `null`
+| Variável | Uso |
+|----------|-----|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Login + leitura (obrigatórias) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sync Hevy (treinos legados sem `user_id`) |
+| `ZEPP_APP_TOKEN`, `ZEPP_USER_ID` | Sync Amazfit/Zepp |
+| `HEVY_API_KEY` | Sync Hevy |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Agenda Google Calendar |
+| `GOOGLE_CALENDAR_ID` | Opcional, default `primary` |
+| `GEMINI_API_KEY` | IA Coach + análise refeição |
+
+## Dados (Supabase)
+- `refeicoes`, `medidas`, `amazfit_dados`, `amazfit_workouts`, `hevy_treinos`, `alimentos_favoritos`, `evacuacoes`, `ia_analises_refeicao`
+- RLS por `user_id` — trigger `set_row_user_id()` em inserts
+- **Removido:** `/medicacao` — tabelas `medicamentos_ativos` / `logs_medicacao` não existem
 
 ## Sync Zepp (`lib/actions/sync.ts`, `lib/zepp-api.ts`)
-- `syncZeppData()` → summary → `amazfit_dados` + encadeia `syncZeppWorkouts()`
-- HRV/PAI: preserva valores DB se API não retorna; HRV via evento `readiness`, PAI via `PaiHealthInfo`
-- **Sono:** se API retorna 0, preserva `sono_total_min` / `sono_profundo_min` existentes no DB (`mapZeppSummaryToRow`)
-- Sidebar Amazfit: se sono hoje = 0, exibe sono da **noite anterior** com hint "noite anterior"
-- Botão: `components/layout/zepp-sync-button.tsx`
+- `syncZeppData()` → `amazfit_dados` + `syncZeppWorkouts()`
+- Preserva HRV/PAI/sono no DB se API retorna 0
+- Sidebar: sono hoje = 0 → mostra **noite anterior**
+- Botão: `zepp-sync-button.tsx`
 
 ## Sync Hevy (`lib/hevy-api.ts`, `lib/actions/sync.ts`)
-- `syncHevyData()` — `GET https://api.hevyapp.com/v1/workouts` (header `api-key`) → upsert `hevy_treinos`
-- Botão: `components/layout/hevy-sync-button.tsx` (header, ao lado do Zepp)
-- Requer `HEVY_API_KEY` em `.env.local` e Vercel Production
+- API: `GET /v1/workouts` — **`pageSize` máx. 10** (`HEVY_MAX_PAGE_SIZE`)
+- Upsert `hevy_treinos` com `user_id` do utilizador logado
+- Preferência: `createServiceSupabase()`; fallback: client autenticado (insert/update separados)
+- Erros amigáveis: chave inválida, RLS, treinos legados sem `user_id`
+- Botão: `hevy-sync-button.tsx`
 
 ## Google Calendar (`lib/google-calendar.ts`)
-- Env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, opcional `GOOGLE_CALENDAR_ID` (default `primary`)
-- Setup refresh token: `node scripts/get-gcal-token.mjs` (uma vez)
-- Aba **Agenda** em Hoje: `CalendarAgendaPanel` — eventos do dia BRT, somente leitura
-- Botão **Atualizar** → `refreshCalendarAgenda()` + `router.refresh()`
+- Eventos de **hoje BRT** na aba **Agenda** (Hoje) — somente leitura
+- `CalendarAgendaPanel` + `CalendarRefreshButton` → `refreshCalendarAgenda()`
+- Setup token: `node scripts/get-gcal-token.mjs`
+- Teste: `node scripts/test-gcal-fetch.mjs`
 
-## Navegação (`lib/navigation.ts`)
-- Seções: Hoje, Evolução, Registros, Treinos, Histórico, Biometria, Evacuação, IA Coach
-- **Removido:** `/medicacao`
+## Dashboard Hoje (`app/(dashboard)/page.tsx`)
+- Tabs: Nutrição · Wearable · **Agenda** (Google Calendar)
+- Refeições: `MealsList` com `MealCardActions` (Editar + Apagar)
 
-## Páginas — estado atual (pós `c14bfa8`)
+## Outras páginas
+- **`/biometria`:** resumo + `MeasurementsHistoryTable`
+- **`/historico`:** 9 KPIs + `HistoryDayDetails` (refeições, treinos, evacuações)
+- **`/registros`:** editar via `openEditMeal()` — `deleteMealFromForm` em `lib/actions/meals.ts` (não passar server action inline como prop)
+- **`/evacuacao`**, **`/configuracoes`**, **`/ia-coach`**, **`/treinos`**
 
-### `/biometria`
-- `BiometrySection` + tabela `MeasurementsHistoryTable` (`getMeasurementsHistory()`)
-
-### `/historico`
-- 9 KPIs: calorias, proteína, água, balanço, passos, sono, cal. ativas, refeições, evacuações
-- `HistoryDayDetails`: refeições, treinos Hevy/Zepp, evacuações do dia
-- `getDayHistorySummary()`, `getDayHistoryDetails()`, `getMealsForDate()` em `lib/data.ts`
-- `brtDateFromDataHora()` em `lib/brt-time.ts`
-
-### `/registros`
-- Cards com **Editar** + **Apagar** via `MealCardActions` → `openEditMeal()` (modal sidebar)
-
-### Refeições IA (`components/modals/meal-modal.tsx`)
-- Abas Manual | Texto IA | Foto IA (`/api/meals/analyze`, Gemini)
-- Erros: `lib/gemini-errors.ts` (créditos prepay esgotados → mensagem amigável)
-
-### Evacuação (`/evacuacao`)
-- Cards resumo + modais Registrar / Histórico
-
-### Configurações (`/configuracoes`)
-- Metas (`metas_usuario`) + suplementos (`suplementos_config`)
-
-## Coach IA (`/ia-coach`)
-- `getCoachHealthContext()` — hoje + ontem: nutrição, wearable, evacuação, treinos
+## Refeições IA
+- Modal: Manual | Texto IA | Foto IA (`/api/meals/analyze`)
+- Erros Gemini: `lib/gemini-errors.ts`
 
 ## Auth
-- `/login`, `/registro`, `proxy.ts`, RLS por `user_id` (`20260609_user_auth_rls.sql`)
+- `/login`, `/registro`, `proxy.ts`, RLS (`20260609_user_auth_rls.sql`)
 
-## Sprints e commits (jun/2026)
+## Commits recentes (jun/2026)
 | Commit | Tema |
 |--------|------|
-| `ead4572` | Sprint 0–1: editar refeições + auth/RLS |
-| `7cd17d0` | Sprint 2: configurações metas + suplementos |
-| `237e9cf` | Sprint 3: evacuação resumo + modais |
-| `b76ec04` | Sprint 4: alimento inline + suplementos no modal |
-| `19fffb3` | Sprint 5: IA refeição texto/foto |
-| `01c5791` | Fix mensagem créditos Gemini esgotados |
-| `b52af76` | Sprint 6: docs/env + contexto |
-| `c14bfa8` | **Pré-publicação:** remove medicação, histórico rico, biometria tabela, sync Hevy, fix sono Zepp, editar registros |
+| `c14bfa8` | Pré-publicação: medicação removida, histórico, biometria, Hevy/Zepp |
+| `b02b46f` | Google Calendar agenda, fix Hevy (pageSize+RLS), fix MealCardActions |
 
-## Dev — armadilhas conhecidas
-- **Não apagar `.next` com `npm run dev` rodando** — causa 500 (manifests ENOENT). Parar dev → limpar `.next` → reiniciar.
-- `npm run build` com dev ativo também corrompe cache; preferir parar dev antes do build.
+## Dev — armadilhas
+- **Não apagar `.next` com dev rodando** → 500 ENOENT. Parar dev → limpar → reiniciar.
+- Porta 3535 ocupada: `Get-NetTCPConnection -LocalPort 3535 | ... | Stop-Process`
+- Após alterar `.env.local`: reiniciar `npm run dev`
+
+## Vercel Production — checklist env
+`NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `ZEPP_*`, `HEVY_API_KEY`, `GOOGLE_*`, `GEMINI_API_KEY`
 
 ## Padrões
-- Server Components + Server Actions; **nunca** importar `lib/data.ts` em Client Components
-- Commits/README vitrine em **inglês**; docs internas podem ser PT
-- Metas default: `lib/goals.ts` — TMB 1863, proteína 190g, água 3.5L, PAI meta 100
-- Status sync header: verde se sync hoje/ontem BRT ou **48h** (`SYNC_FRESHNESS_HOURS`)
-
-## Pendências futuras
-- README ainda menciona `/medicacao` — atualizar quando conveniente
+- Server Components + Server Actions; client importa actions de `lib/actions/*` diretamente
+- **Nunca** importar `lib/data.ts` em Client Components
+- Metas default: TMB 1863, proteína 190g, água 3.5L, PAI 100

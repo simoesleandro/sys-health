@@ -17,9 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { deleteSupplementConfig } from "@/lib/actions/settings"
+import { deleteSupplementProductGroup } from "@/lib/actions/settings"
 import type { NutritionGoals } from "@/lib/goals"
 import { SUPPLEMENT_THEME_STYLES } from "@/lib/supplement-theme"
+import {
+  getSupplementDisplayName,
+  groupSupplementProducts,
+} from "@/lib/supplements"
 import type { UserSupplementConfig } from "@/lib/user-settings"
 import { cn } from "@/lib/utils"
 
@@ -45,15 +49,18 @@ export function SettingsManager({
     setModalOpen(true)
   }
 
+  const supplementProducts = groupSupplementProducts(initialSupplements)
+
   function handleDelete(item: UserSupplementConfig) {
+    const displayName = getSupplementDisplayName(item)
     if (
-      !confirm(`Apagar "${item.nome}"? Registos antigos não são removidos.`)
+      !confirm(`Apagar "${displayName}"? Registos antigos não são removidos.`)
     ) {
       return
     }
 
     startDelete(async () => {
-      const result = await deleteSupplementConfig(item.dbId)
+      const result = await deleteSupplementProductGroup(item.dbId)
       if (!result.success) {
         alert(result.error)
         return
@@ -101,36 +108,39 @@ export function SettingsManager({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="hidden sm:table-cell">ID</TableHead>
+              <TableHead>Produto</TableHead>
+              <TableHead className="hidden md:table-cell">Doses</TableHead>
               <TableHead className="hidden md:table-cell">Macros</TableHead>
               <TableHead>Ativo</TableHead>
               <TableHead className="w-[100px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialSupplements.map((item) => {
-              const theme = SUPPLEMENT_THEME_STYLES[item.cor_tema]
+            {supplementProducts.map(({ representative, slots }) => {
+              const theme = SUPPLEMENT_THEME_STYLES[representative.cor_tema]
+              const displayName = getSupplementDisplayName(representative)
+              const doseSummary = slots.map((slot) => slot.dose).join(" · ")
               return (
-                <TableRow key={item.dbId}>
+                <TableRow key={`${representative.id}-${representative.dbId}`}>
                   <TableCell>
                     <div className="flex flex-col gap-0.5">
                       <span className={cn("font-medium", theme.ringIcon)}>
-                        {item.nome}
+                        {displayName}
                       </span>
                       <span className="text-xs text-slate-500">
-                        {item.marca} · {item.dose}
+                        {representative.marca}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden font-mono text-xs text-slate-400 sm:table-cell">
-                    {item.id}
+                  <TableCell className="hidden text-xs text-slate-400 md:table-cell">
+                    {doseSummary}
                   </TableCell>
                   <TableCell className="hidden text-xs text-slate-400 md:table-cell">
-                    {item.calorias} kcal · P {item.proteinas}g
+                    {representative.calorias} kcal · P {representative.proteinas}g
+                    {slots.length > 1 ? ` · ${slots.length} doses/dia` : ""}
                   </TableCell>
                   <TableCell>
-                    {item.ativo ? (
+                    {representative.ativo ? (
                       <span className="text-xs text-brand-green">Sim</span>
                     ) : (
                       <span className="text-xs text-slate-500">Não</span>
@@ -142,8 +152,8 @@ export function SettingsManager({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        onClick={() => openEdit(item)}
-                        aria-label={`Editar ${item.nome}`}
+                        onClick={() => openEdit(representative)}
+                        aria-label={`Editar ${displayName}`}
                       >
                         <Pencil className="size-4" />
                       </Button>
@@ -152,8 +162,8 @@ export function SettingsManager({
                         size="icon"
                         variant="ghost"
                         disabled={isDeleting}
-                        onClick={() => handleDelete(item)}
-                        aria-label={`Apagar ${item.nome}`}
+                        onClick={() => handleDelete(representative)}
+                        aria-label={`Apagar ${displayName}`}
                       >
                         <Trash2 className="size-4 text-red-400" />
                       </Button>
@@ -165,7 +175,7 @@ export function SettingsManager({
           </TableBody>
         </Table>
 
-        {initialSupplements.length === 0 ? (
+        {supplementProducts.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-slate-500">
             Nenhum suplemento configurado.
           </p>

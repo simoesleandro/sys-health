@@ -268,14 +268,26 @@ export async function fetchZeppBandSummary(
     }
   )
 
-  if (!response.ok) {
-    throw new Error(`Zepp HTTP ${response.status}`)
-  }
-
   const payload = (await response.json()) as {
     code?: number | string
     message?: string
     data?: Array<{ summary?: string }>
+  }
+
+  if (!response.ok) {
+    const detail = payload.message?.trim()
+    if (response.status === 401) {
+      throw new Error(
+        detail
+          ? `Token Zepp inválido ou expirado (${detail}). Atualize ZEPP_APP_TOKEN no .env.local.`
+          : "Token Zepp inválido ou expirado. Atualize ZEPP_APP_TOKEN no .env.local."
+      )
+    }
+    throw new Error(
+      detail
+        ? `Zepp HTTP ${response.status}: ${detail}`
+        : `Zepp HTTP ${response.status}`
+    )
   }
 
   const code = payload.code
@@ -454,15 +466,27 @@ export async function fetchZeppWorkoutHistory(
     }
   )
 
-  if (!response.ok) {
-    throw new Error(`Zepp workouts HTTP ${response.status}`)
-  }
-
   const payload = (await response.json()) as {
     code?: number | string
     message?: string
     data?: { summary?: ZeppWorkoutApiItem[] }
     summary?: ZeppWorkoutApiItem[]
+  }
+
+  if (!response.ok) {
+    const detail = payload.message?.trim()
+    if (response.status === 401) {
+      throw new Error(
+        detail
+          ? `Token Zepp inválido ou expirado (${detail}). Atualize ZEPP_APP_TOKEN no .env.local.`
+          : "Token Zepp inválido ou expirado. Atualize ZEPP_APP_TOKEN no .env.local."
+      )
+    }
+    throw new Error(
+      detail
+        ? `Zepp workouts HTTP ${response.status}: ${detail}`
+        : `Zepp workouts HTTP ${response.status}`
+    )
   }
 
   const code = payload.code

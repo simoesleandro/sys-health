@@ -69,6 +69,12 @@ export async function CalendarAgendaPanel() {
           <p className="text-sm text-red-300">
             Não foi possível carregar a agenda: {agenda.error}
           </p>
+          {agenda.error.includes("get-gcal-token") ? (
+            <p className="mt-2 text-xs text-slate-500">
+              Depois de atualizar o token, reinicie o servidor e use o botão
+              Atualizar na agenda.
+            </p>
+          ) : null}
         </NeonCard>
       ) : agenda.events.length === 0 ? (
         <NeonCard accent="magenta" className="px-5 py-6 text-center">

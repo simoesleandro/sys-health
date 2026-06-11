@@ -4,8 +4,14 @@ import { revalidatePath } from "next/cache"
 
 import { deleteMeal } from "@/lib/actions/meals"
 import { suggestMealCategoryByHour } from "@/lib/meals"
-import type { SupplementPreset } from "@/lib/supplements"
-import { findUserSupplementById } from "@/lib/user-settings"
+import {
+  isSuppFamilyRegistrationId,
+  parseSuppFamilyPresetId,
+  resolvePresetForRegistration,
+  type SupplementCategory,
+} from "@/lib/supplements"
+import { getTodayMeals } from "@/lib/data"
+import { getUserSupplementConfigs } from "@/lib/user-settings"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 export async function registerSupplements(presetIds: string[]) {
@@ -16,15 +22,36 @@ export async function registerSupplements(presetIds: string[]) {
     }
   }
 
-  const resolved = await Promise.all(
-    presetIds.map((id) => findUserSupplementById(id))
-  )
-  const presets = resolved.filter(
-    (item): item is SupplementPreset => item !== undefined
-  )
+  const [configs, meals] = await Promise.all([
+    getUserSupplementConfigs(),
+    getTodayMeals(),
+  ])
+
+  const additionalByCategory: Partial<Record<SupplementCategory, number>> = {}
+  const presets = []
+
+  for (const id of presetIds) {
+    const preset = resolvePresetForRegistration(id, configs, meals, {
+      additionalCategoryDoses: additionalByCategory,
+    })
+    if (!preset) continue
+    presets.push(preset)
+
+    const family = parseSuppFamilyPresetId(id)
+    if (family) {
+      additionalByCategory[family.category] =
+        (additionalByCategory[family.category] ?? 0) + 1
+    }
+  }
 
   if (!presets.length) {
-    return { success: false as const, error: "Suplementos inválidos." }
+    const familySelected = presetIds.some(isSuppFamilyRegistrationId)
+    return {
+      success: false as const,
+      error: familySelected
+        ? "Limite diário desta categoria já atingido."
+        : "Suplementos inválidos.",
+    }
   }
 
   const supabase = await createServerSupabase()

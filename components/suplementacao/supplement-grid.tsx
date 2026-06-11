@@ -3,16 +3,22 @@
 import { Check } from "lucide-react"
 
 import { SUPPLEMENT_THEME_STYLES } from "@/lib/supplement-theme"
-import type { SupplementGridItem } from "@/lib/supplements"
+import {
+  getSupplementDisplayName,
+  isCategoryGenericGridId,
+  type SupplementGridItem,
+} from "@/lib/supplements"
 import { cn } from "@/lib/utils"
 
 function SupplementCard({ item }: { item: SupplementGridItem }) {
   const theme = SUPPLEMENT_THEME_STYLES[item.cor_tema]
   const isTaken = item.isTaken
+  const displayName = getSupplementDisplayName(item)
+  const isGenericCategory = isCategoryGenericGridId(item.id)
 
   return (
     <div
-      aria-label={`${item.nome}${isTaken ? " — tomado hoje" : ""}`}
+      aria-label={`${displayName}${isTaken ? " — tomado hoje" : ""}`}
       className={cn(
         "relative flex min-h-[9.5rem] flex-col rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4 backdrop-blur-md transition-all",
         theme.topBorder,
@@ -40,9 +46,15 @@ function SupplementCard({ item }: { item: SupplementGridItem }) {
             isTaken && "text-slate-300"
           )}
         >
-          {item.nome}
+          {displayName}
         </p>
-        <p className="mt-1 text-xs text-zinc-400">{item.marca}</p>
+        {isGenericCategory ? (
+          <p className="mt-1 text-xs text-zinc-500">
+            Registe pelo + Suplementos
+          </p>
+        ) : item.marca ? (
+          <p className="mt-1 text-xs text-zinc-400">{item.marca}</p>
+        ) : null}
       </div>
 
       <div className="mt-auto pt-4">

@@ -2,7 +2,7 @@
 export const SYNC_FRESHNESS_HOURS = 48
 
 export function getZeppAppToken() {
-  return process.env.ZEPP_APP_TOKEN?.trim() || null
+  return getZeppBearerToken()
 }
 
 export function getZeppBearerToken() {

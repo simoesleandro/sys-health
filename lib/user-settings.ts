@@ -5,12 +5,11 @@ import {
   type NutritionGoals,
 } from "@/lib/goals"
 import {
+  buildRegistrationPresets,
   DEFAULT_VISUAL_SUPPLEMENTS,
   type SupplementPreset,
   type SupplementTheme,
   type VisualSupplement,
-  WHEY_LEGACY_DESCRICAO,
-  WHEY_MACROS,
 } from "@/lib/supplements"
 import { requireAuth } from "@/lib/supabase/auth"
 
@@ -33,6 +32,13 @@ export type SupplementConfigInput = {
   carboidratos: number
   gorduras: number
   sortOrder: number
+  ativo: boolean
+}
+
+/** Cadastro simplificado — só produto e marca; o sistema preenche o resto. */
+export type SupplementProductInput = {
+  nome: string
+  marca: string
   ativo: boolean
 }
 
@@ -67,49 +73,9 @@ function mapSupplementRow(row: Record<string, unknown>): UserSupplementConfig {
 }
 
 export function toSupplementPresets(
-  supplements: Pick<
-    VisualSupplement,
-    | "id"
-    | "label"
-    | "descricao"
-    | "calorias"
-    | "proteinas"
-    | "carboidratos"
-    | "gorduras"
-  >[]
+  supplements: VisualSupplement[]
 ): SupplementPreset[] {
-  const active = supplements.filter((item) => item.id)
-  const wheyItems = active.filter((item) => item.id.startsWith("whey-"))
-
-  const presets: SupplementPreset[] = []
-
-  if (wheyItems.length > 0) {
-    const first = wheyItems[0]
-    presets.push({
-      id: "whey",
-      label: WHEY_MACROS.label,
-      descricao: WHEY_LEGACY_DESCRICAO,
-      calorias: first.calorias,
-      proteinas: first.proteinas,
-      carboidratos: first.carboidratos,
-      gorduras: first.gorduras,
-    })
-  }
-
-  for (const item of active) {
-    if (item.id.startsWith("whey-")) continue
-    presets.push({
-      id: item.id,
-      label: item.label,
-      descricao: item.descricao,
-      calorias: item.calorias,
-      proteinas: item.proteinas,
-      carboidratos: item.carboidratos,
-      gorduras: item.gorduras,
-    })
-  }
-
-  return presets
+  return buildRegistrationPresets(supplements)
 }
 
 async function seedDefaultGoals(userId: string) {
@@ -257,33 +223,12 @@ export const getUserSupplementPresets = cache(async (): Promise<SupplementPreset
 export async function findUserSupplementById(
   id: string
 ): Promise<SupplementPreset | undefined> {
-  const configs = await getUserSupplementConfigs()
-  const active = configs.filter((item) => item.ativo)
+  const { getTodayMeals } = await import("@/lib/data")
+  const [configs, meals] = await Promise.all([
+    getUserSupplementConfigs(),
+    getTodayMeals(),
+  ])
 
-  if (id === "whey") {
-    const whey = active.find((item) => item.id.startsWith("whey-"))
-    if (!whey) return undefined
-    return {
-      id: "whey",
-      label: WHEY_MACROS.label,
-      descricao: WHEY_LEGACY_DESCRICAO,
-      calorias: whey.calorias,
-      proteinas: whey.proteinas,
-      carboidratos: whey.carboidratos,
-      gorduras: whey.gorduras,
-    }
-  }
-
-  const visual = active.find((item) => item.id === id)
-  if (!visual) return undefined
-
-  return {
-    id: visual.id,
-    label: visual.label,
-    descricao: visual.descricao,
-    calorias: visual.calorias,
-    proteinas: visual.proteinas,
-    carboidratos: visual.carboidratos,
-    gorduras: visual.gorduras,
-  }
+  const { resolvePresetForRegistration } = await import("@/lib/supplements")
+  return resolvePresetForRegistration(id, configs, meals)
 }
