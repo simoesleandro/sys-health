@@ -40,6 +40,16 @@ export function matchGeminiErrorMessage(message: string) {
     return "Limite da API Gemini atingido. Aguarde alguns minutos e tente de novo."
   }
 
+  if (
+    message.includes("unexpected model name format") ||
+    message.includes("GenerateContentRequest.model")
+  ) {
+    return (
+      'Modelo Gemini inválido. Configure GEMINI_MODEL como "gemini-2.5-flash" (sem aspas) ' +
+      "ou remova a variável no .env.local / Vercel e faça redeploy."
+    )
+  }
+
   return null
 }
 

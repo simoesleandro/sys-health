@@ -71,8 +71,9 @@ export async function CalendarAgendaPanel() {
           </p>
           {agenda.error.includes("get-gcal-token") ? (
             <p className="mt-2 text-xs text-slate-500">
-              Depois de atualizar o token, reinicie o servidor e use o botão
-              Atualizar na agenda.
+              {agenda.error.includes("Vercel")
+                ? "Em produção, atualize as variáveis GOOGLE_* na Vercel e redeploy. Publique o app OAuth no Google Cloud para evitar renovação semanal."
+                : "Depois de atualizar o token, reinicie o servidor e use o botão Atualizar na agenda."}
             </p>
           ) : null}
         </NeonCard>

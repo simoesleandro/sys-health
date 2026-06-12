@@ -2,7 +2,7 @@ import { isBrtDateString } from "@/lib/date-utils"
 import { getBrtUtcBoundsForOffset } from "@/lib/data"
 
 export function getDefaultHistoricoDate() {
-  return getBrtUtcBoundsForOffset(1).brtDate
+  return getBrtUtcBoundsForOffset(0).brtDate
 }
 
 export function resolveHistoricoDate(dataParam?: string | null) {

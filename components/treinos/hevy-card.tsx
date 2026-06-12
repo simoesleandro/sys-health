@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { NeonCard } from "@/components/ui/neon-card"
 import {
   formatDurationMin,
+  formatExerciseRpeSummary,
   formatSetLabel,
   formatVolumeKg,
   type HevyWorkout,
@@ -52,13 +53,16 @@ export function HevyCard({ workout }: { workout: HevyWorkout }) {
                 key={`${workout.id}-${exercise.title}-${index}`}
                 value={`${workout.id}-${index}`}
               >
-                <AccordionTrigger className="!grid w-full grid-cols-[minmax(0,1fr)_5.5rem_1.25rem] items-center gap-x-3 text-sm font-medium hover:no-underline [&_[data-slot=accordion-trigger-icon]]:col-start-3 [&_[data-slot=accordion-trigger-icon]]:row-start-1 [&_[data-slot=accordion-trigger-icon]]:justify-self-end">
+                <AccordionTrigger className="!grid w-full grid-cols-[minmax(0,1fr)_5.5rem_4rem_1.25rem] items-center gap-x-3 text-sm font-medium hover:no-underline [&_[data-slot=accordion-trigger-icon]]:col-start-4 [&_[data-slot=accordion-trigger-icon]]:row-start-1 [&_[data-slot=accordion-trigger-icon]]:justify-self-end">
                   <span className="min-w-0 truncate text-left">
                     {exercise.title}
                   </span>
                   <span className="text-right text-xs font-normal whitespace-nowrap text-muted-foreground tabular-nums">
                     {exercise.sets.length} série
                     {exercise.sets.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="text-right text-xs font-normal whitespace-nowrap text-brand-green tabular-nums">
+                    RPE {formatExerciseRpeSummary(exercise)}
                   </span>
                 </AccordionTrigger>
                 <AccordionContent>

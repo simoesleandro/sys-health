@@ -7,13 +7,15 @@ import {
 
 import { buildCoachSystemPrompt } from "@/lib/coach"
 import { getCoachHealthContext } from "@/lib/data"
+import {
+  formatInvalidGeminiModelMessage,
+  getGeminiModelId,
+  isValidGeminiModelId,
+} from "@/lib/gemini-model"
 import { requireAuth } from "@/lib/supabase/auth"
 import { getUserNutritionGoals } from "@/lib/user-settings"
 
 export const maxDuration = 30
-
-const GEMINI_MODEL =
-  process.env.GEMINI_MODEL ?? "gemini-2.5-flash"
 
 const google = createGoogleGenerativeAI({
   apiKey:
@@ -44,6 +46,14 @@ export async function POST(req: Request) {
 
   const { messages }: { messages: UIMessage[] } = await req.json()
 
+  const geminiModel = getGeminiModelId()
+  if (!isValidGeminiModelId(geminiModel)) {
+    return new Response(
+      JSON.stringify({ error: formatInvalidGeminiModelMessage(geminiModel) }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    )
+  }
+
   const [healthContext, goals] = await Promise.all([
     getCoachHealthContext(),
     getUserNutritionGoals(),
@@ -51,7 +61,7 @@ export async function POST(req: Request) {
 
   try {
     const result = streamText({
-      model: google(GEMINI_MODEL),
+      model: google(geminiModel),
       system: buildCoachSystemPrompt(healthContext, goals),
       messages: await convertToModelMessages(messages),
     })

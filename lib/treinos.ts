@@ -1,8 +1,11 @@
+import { brtDateFromDataHora } from "@/lib/brt-time"
+
 export type HevySet = {
   index: number
   type: string
   weightKg: number | null
   reps: number | null
+  rpe: number | null
 }
 
 export type HevyExercise = {
@@ -65,7 +68,7 @@ export function mapZeppWorkoutDbRow(row: {
   const calorias = Number(row.calorias ?? 0)
   const paceSeconds = calcPaceSecondsPerKm(duracaoMinutos, distanciaKm)
   const dataHora = String(row.data_hora)
-  const data = dataHora.slice(0, 10)
+  const data = brtDateFromDataHora(dataHora) || dataHora.slice(0, 10)
   const tipo: ZeppActivityType =
     row.tipo === "Caminhada" ? "Caminhada" : "Corrida"
 
@@ -88,7 +91,7 @@ export function mapZeppRunningRow(row: {
   corrida_cal?: number | string | null
 }): ZeppRunSession {
   const dataHora = String(row.data_hora)
-  const data = dataHora.slice(0, 10)
+  const data = brtDateFromDataHora(dataHora) || dataHora.slice(0, 10)
   const distanciaKm = Number(row.corrida_km ?? 0)
   const calorias = Number(row.corrida_cal ?? 0)
 
@@ -137,6 +140,7 @@ export function parseHevyExercises(raw: unknown): HevyExercise[] {
             weightKg:
               set.weight_kg == null ? null : Number(set.weight_kg),
             reps: set.reps == null ? null : Number(set.reps),
+            rpe: set.rpe == null ? null : Number(set.rpe),
           } satisfies HevySet
         })
         .filter((set): set is HevySet => set != null)
@@ -212,5 +216,19 @@ export function formatSetLabel(set: HevySet) {
       ? `${set.weightKg} kg`
       : "peso corporal"
   const reps = set.reps != null ? `${set.reps} reps` : "—"
-  return `${weight} × ${reps}`
+  const rpe =
+    set.rpe != null && Number.isFinite(set.rpe) ? ` · RPE ${set.rpe}` : ""
+  return `${weight} × ${reps}${rpe}`
+}
+
+export function formatExerciseRpeSummary(exercise: HevyExercise) {
+  const workingSets = exercise.sets.filter(
+    (set) =>
+      set.type === "normal" && set.rpe != null && Number.isFinite(set.rpe)
+  )
+
+  if (workingSets.length === 0) return "—"
+
+  const lastSet = workingSets[workingSets.length - 1]
+  return String(lastSet.rpe)
 }

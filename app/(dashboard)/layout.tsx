@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 
-import { MobileQuickBar } from "@/components/dashboard/mobile-quick-bar"
+import { MobileBottomBar } from "@/components/layout/mobile-bottom-bar"
 import { AppShell } from "@/components/layout/app-shell"
 import { SidebarAmazfitPanel } from "@/components/layout/sidebar-amazfit-panel"
 import { SidebarAmazfitSkeleton } from "@/components/layout/sidebar-amazfit-skeleton"
@@ -56,8 +56,8 @@ export default async function DashboardLayout({
         </Suspense>
       }
     >
-      <div className="pb-20 md:pb-0">{children}</div>
-      <MobileQuickBar />
+      <div className="pb-20 lg:pb-0">{children}</div>
+      <MobileBottomBar />
     </AppShell>
   )
 }

@@ -1,6 +1,7 @@
 import { MEASUREMENT_FIELDS } from "@/lib/biometry"
 import { formatMeasurementDateLabel } from "@/lib/biometry"
 import { getMeasurementsHistory } from "@/lib/data"
+import { cn } from "@/lib/utils"
 
 function formatValue(value: number | null) {
   if (value == null || !Number.isFinite(value)) return "—"
@@ -28,6 +29,7 @@ export async function MeasurementsHistoryTable() {
   }
 
   const recent = [...records].reverse().slice(0, 24)
+  const latestRecordId = records.at(-1)?.id ?? null
 
   return (
     <section className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-5">
@@ -53,18 +55,42 @@ export async function MeasurementsHistoryTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/40">
-            {recent.map((record) => (
-              <tr key={record.id} className="text-slate-300">
+            {recent.map((record) => {
+              const isLatest = record.id === latestRecordId
+
+              return (
+              <tr
+                key={record.id}
+                className={cn(
+                  "text-slate-300",
+                  isLatest &&
+                    "border-l-2 border-brand-cyan bg-brand-cyan/5 text-white"
+                )}
+              >
                 <td className="whitespace-nowrap px-2 py-2 font-medium text-white">
-                  {formatMeasurementDateLabel(record.data)}
+                  <span className="inline-flex items-center gap-2">
+                    {formatMeasurementDateLabel(record.data)}
+                    {isLatest ? (
+                      <span className="rounded-full bg-brand-cyan/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-cyan uppercase">
+                        Mais recente
+                      </span>
+                    ) : null}
+                  </span>
                 </td>
                 {MEASUREMENT_FIELDS.map((field) => (
-                  <td key={field.key} className="px-2 py-2 tabular-nums">
+                  <td
+                    key={field.key}
+                    className={cn(
+                      "px-2 py-2 tabular-nums",
+                      isLatest && "font-semibold text-white"
+                    )}
+                  >
                     {formatValue(record[field.key])}
                   </td>
                 ))}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

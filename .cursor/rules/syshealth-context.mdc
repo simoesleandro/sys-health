@@ -81,7 +81,10 @@ alwaysApply: true
 - Erros Gemini: `lib/gemini-errors.ts`
 
 ## Auth
-- `/login`, `/registro`, `middleware.ts`, RLS (`20260609_user_auth_rls.sql`)
+- `/login`, `/registro`, RLS (`20260609_user_auth_rls.sql`)
+- **Middleware Next.js:** `middleware.ts` na **raiz** (não `proxy.ts`) — export **obrigatório** `export async function middleware`
+- Lógica de sessão em `lib/supabase/middleware.ts` → `updateSession(request)` (cookies Supabase, redirect `/login`)
+- **Nunca** renomear para `proxy` — Next.js só reconhece `middleware.ts` + export `middleware`
 
 ## Commits recentes (jun/2026)
 | Commit | Tema |

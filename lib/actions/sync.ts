@@ -171,6 +171,7 @@ export async function syncZeppData(
     revalidatePath("/", "layout")
     revalidatePath("/evolucao")
     revalidatePath("/treinos")
+    revalidatePath("/historico")
     revalidatePath("/")
 
     const recoveryParts = [

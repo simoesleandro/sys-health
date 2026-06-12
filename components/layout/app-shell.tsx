@@ -51,7 +51,7 @@ export function AppShell({
         />
         <SidebarInset className="neon-site-bg">
           <div className="flex min-h-svh flex-col neon-site-bg">
-            <div className="sticky top-0 z-20 hidden shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-2 backdrop-blur-md md:flex">
+            <div className="sticky top-0 z-20 hidden shrink-0 items-center gap-2 border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-2 backdrop-blur-md lg:flex">
               <SidebarTrigger className="text-slate-400 hover:text-white" />
               <span className="text-xs text-slate-500">
                 Menu · Ctrl+B

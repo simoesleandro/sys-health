@@ -3,6 +3,7 @@ export type HevyApiSet = {
   type?: string
   weight_kg?: number | null
   reps?: number | null
+  rpe?: number | null
 }
 
 export type HevyApiExercise = {
@@ -94,6 +95,7 @@ export function mapHevyWorkoutToRow(workout: HevyApiWorkout): HevyDbRow {
       type: String(set.type ?? "normal"),
       weight_kg: set.weight_kg == null ? null : Number(set.weight_kg),
       reps: set.reps == null ? null : Number(set.reps),
+      rpe: set.rpe == null ? null : Number(set.rpe),
     }))
 
     return {

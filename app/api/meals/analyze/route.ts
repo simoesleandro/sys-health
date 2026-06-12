@@ -7,11 +7,15 @@ import {
   formatMealAnalysisError,
   parseMealAnalysisResponse,
 } from "@/lib/meal-analysis"
+import {
+  formatInvalidGeminiModelMessage,
+  getGeminiModelId,
+  isValidGeminiModelId,
+} from "@/lib/gemini-model"
 import { requireAuth } from "@/lib/supabase/auth"
 
 export const maxDuration = 60
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash"
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 const google = createGoogleGenerativeAI({
@@ -54,6 +58,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 })
   }
 
+  const geminiModel = getGeminiModelId()
+  if (!isValidGeminiModelId(geminiModel)) {
+    return Response.json(
+      { error: formatInvalidGeminiModelMessage(geminiModel) },
+      { status: 503 }
+    )
+  }
+
   try {
     if (body.mode === "text") {
       const text = body.text?.trim() ?? ""
@@ -65,7 +77,7 @@ export async function POST(req: Request) {
       }
 
       const result = await generateText({
-        model: google(GEMINI_MODEL),
+        model: google(geminiModel),
         prompt: buildMealTextPrompt(text),
       })
 
@@ -104,7 +116,7 @@ export async function POST(req: Request) {
       }
 
       const result = await generateText({
-        model: google(GEMINI_MODEL),
+        model: google(geminiModel),
         messages: [
           {
             role: "user",

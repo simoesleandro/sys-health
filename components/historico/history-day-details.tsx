@@ -3,7 +3,7 @@ import { formatMealTimeBrt } from "@/lib/data"
 import type { EvacuationRecord } from "@/lib/evacuation"
 import type { TodayMeal } from "@/lib/meal-types"
 import type { HevyWorkout, ZeppRunSession } from "@/lib/treinos"
-import { formatDurationMin, formatVolumeKg } from "@/lib/treinos"
+import { formatDurationMin, formatExerciseRpeSummary, formatVolumeKg } from "@/lib/treinos"
 
 function MealsSection({ meals }: { meals: TodayMeal[] }) {
   return (
@@ -62,6 +62,15 @@ function WorkoutsSection({
                 {formatVolumeKg(workout.volumeKg)} · {workout.exercicios.length}{" "}
                 exercício(s)
               </p>
+              {workout.exercicios.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-xs text-slate-400">
+                  {workout.exercicios.map((exercise, index) => (
+                    <li key={`${workout.id}-${exercise.title}-${index}`}>
+                      {exercise.title} · RPE {formatExerciseRpeSummary(exercise)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
           {zepp.map((session) => (

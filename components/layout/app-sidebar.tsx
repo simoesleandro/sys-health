@@ -79,7 +79,7 @@ export function AppSidebar({
     <Sidebar
       collapsible="none"
       variant="sidebar"
-      className="hidden overflow-x-hidden border-zinc-800/60 md:flex [&_[data-sidebar=sidebar]]:overflow-x-hidden"
+      className="hidden overflow-x-hidden border-zinc-800/60 lg:flex [&_[data-sidebar=sidebar]]:overflow-x-hidden"
     >
       <SidebarHeader className="border-b border-zinc-800/60 px-4 py-5">
         <Link href="/" className="flex items-baseline gap-0.5">

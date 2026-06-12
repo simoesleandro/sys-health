@@ -16,7 +16,6 @@ import {
   type EvacuationRecord,
 } from "@/lib/evacuation"
 import {
-  brtDateFromDataHora,
   formatMealTimeBrt,
   getBrtTodayUtcBounds,
   getBrtUtcBoundsForDate,
@@ -245,6 +244,15 @@ export const getDayHistorySummary = cache(async (brtDate: string) => {
     getEvacuationsForBrtBounds(startIso, endIso),
   ])
 
+  let sonoMinutes = amazfit.sonoTotalMin
+  if (amazfit.synced && sonoMinutes <= 0) {
+    const previousDate = getPreviousBrtDate(brtDate)
+    const previousAmazfit = await getAmazfitDataForDate(previousDate)
+    if (previousAmazfit.sonoTotalMin > 0) {
+      sonoMinutes = previousAmazfit.sonoTotalMin
+    }
+  }
+
   return {
     brtDate,
     nutrition,
@@ -254,7 +262,7 @@ export const getDayHistorySummary = cache(async (brtDate: string) => {
       ? amazfit.passos.toLocaleString("pt-BR")
       : "—",
     sono: amazfit.synced
-      ? formatSleepMinutes(amazfit.sonoTotalMin)
+      ? formatSleepMinutes(sonoMinutes)
       : "—",
     caloriasAtivas: amazfit.synced
       ? `${amazfit.caloriasGastas.toLocaleString("pt-BR")} kcal`
@@ -309,17 +317,12 @@ export const getMealsForDate = cache(
 export const getDayHistoryDetails = cache(async (brtDate: string) => {
   const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
 
-  const [meals, evacuations, hevyAll, zeppAll] = await Promise.all([
+  const [meals, evacuations, hevyWorkouts, zeppSessions] = await Promise.all([
     getMealsForDate(brtDate),
     getEvacuationsForBrtBounds(startIso, endIso),
-    getRecentHevyWorkouts(60),
-    getZeppRunningSessions(60),
+    getHevyWorkoutsForDate(brtDate),
+    getZeppSessionsForDate(brtDate),
   ])
-
-  const hevyWorkouts = hevyAll.filter(
-    (workout) => brtDateFromDataHora(workout.dataHora) === brtDate
-  )
-  const zeppSessions = zeppAll.filter((session) => session.data === brtDate)
 
   return {
     meals,
@@ -1040,6 +1043,118 @@ export const getSyncStatus = cache(async (): Promise<SyncStatus> => {
   return status
 })
 
+function getPreviousBrtDate(brtDate: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(brtDate)
+  if (!match) return brtDate
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const previous = new Date(Date.UTC(year, month - 1, day - 1, 12, 0, 0, 0))
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(previous)
+}
+
+function mapHevyWorkoutRow(row: {
+  id: string | number
+  data_hora: string
+  titulo: string | null
+  exercicios_json: unknown
+  duracao_min: number | null
+  volume_kg: number | null
+}): HevyWorkout {
+  return {
+    id: String(row.id),
+    titulo: String(row.titulo ?? "Treino"),
+    dataHora: String(row.data_hora ?? ""),
+    dataLabel: formatWorkoutDateLabel(String(row.data_hora ?? "")),
+    duracaoMin: row.duracao_min == null ? null : Number(row.duracao_min),
+    volumeKg: row.volume_kg == null ? null : Number(row.volume_kg),
+    exercicios: parseHevyExercises(row.exercicios_json),
+  }
+}
+
+export const getHevyWorkoutsForDate = cache(
+  async (brtDate: string): Promise<HevyWorkout[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
+
+    try {
+      const { data, error } = await supabase
+        .from("hevy_treinos")
+        .select(
+          "id, data_hora, titulo, exercicios_json, duracao_min, volume_kg"
+        )
+        .gte("data_hora", startIso)
+        .lt("data_hora", endIso)
+        .order("data_hora", { ascending: false })
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => mapHevyWorkoutRow(row))
+    } catch (error) {
+      console.error("[getHevyWorkoutsForDate]", error)
+      return []
+    }
+  }
+)
+
+export const getZeppSessionsForDate = cache(
+  async (brtDate: string): Promise<ZeppRunSession[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    const { startIso, endIso } = getBrtUtcBoundsForDate(brtDate)
+
+    try {
+      const { data: workouts, error: workoutsError } = await supabase
+        .from("amazfit_workouts")
+        .select(
+          "track_id, data_hora, tipo, distancia_km, duracao_minutos, fc_media, calorias, pace_segundos_por_km"
+        )
+        .gte("data_hora", startIso)
+        .lt("data_hora", endIso)
+        .gt("distancia_km", 0)
+        .order("data_hora", { ascending: false })
+
+      if (workoutsError) {
+        console.warn("[getZeppSessionsForDate] amazfit_workouts:", workoutsError.message)
+      }
+
+      if (workouts?.length) {
+        return workouts.map((row) => mapZeppWorkoutDbRow(row))
+      }
+
+      const { data, error } = await supabase
+        .from("amazfit_dados")
+        .select("data_hora, corrida_km, corrida_cal")
+        .like("data_hora", `${brtDate}%`)
+        .gt("corrida_km", 0)
+        .order("data_hora", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) return []
+
+      return [
+        mapZeppRunningRow({
+          data_hora: String(data.data_hora),
+          corrida_km: data.corrida_km,
+          corrida_cal: data.corrida_cal,
+        }),
+      ]
+    } catch (error) {
+      console.error("[getZeppSessionsForDate]", error)
+      return []
+    }
+  }
+)
+
 export const getRecentHevyWorkouts = cache(
   async (limit = 20): Promise<HevyWorkout[]> => {
     const supabase = await createServerSupabase()
@@ -1056,16 +1171,7 @@ export const getRecentHevyWorkouts = cache(
 
       if (error) throw error
 
-      return (data ?? []).map((row) => ({
-        id: String(row.id),
-        titulo: String(row.titulo ?? "Treino"),
-        dataHora: String(row.data_hora ?? ""),
-        dataLabel: formatWorkoutDateLabel(String(row.data_hora ?? "")),
-        duracaoMin:
-          row.duracao_min == null ? null : Number(row.duracao_min),
-        volumeKg: row.volume_kg == null ? null : Number(row.volume_kg),
-        exercicios: parseHevyExercises(row.exercicios_json),
-      }))
+      return (data ?? []).map((row) => mapHevyWorkoutRow(row))
     } catch (error) {
       console.error("[getRecentHevyWorkouts]", error)
       return []

@@ -42,9 +42,15 @@ function formatCalendarFetchError(error: unknown): string {
     error instanceof Error ? error.message : "Erro ao buscar agenda."
 
   if (raw.includes("invalid_grant")) {
+    const isProduction = Boolean(process.env.VERCEL)
+    const envHint = isProduction
+      ? "atualize GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN na Vercel (Production) e faça redeploy"
+      : "atualize GOOGLE_REFRESH_TOKEN no .env.local e reinicie o servidor"
+
     return (
       "Token do Google Calendar expirou ou foi revogado. Rode node scripts/get-gcal-token.mjs, " +
-      "atualize GOOGLE_REFRESH_TOKEN no .env.local (e na Vercel em produção) e reinicie o servidor."
+      `${envHint}. ` +
+      "Se renovar com frequência, publique o app OAuth no Google Cloud (Testing expira refresh tokens em ~7 dias)."
     )
   }
 
