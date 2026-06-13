@@ -6,6 +6,10 @@ import {
 } from "ai"
 
 import { buildCoachSystemPrompt } from "@/lib/coach"
+import {
+  getCoachGoogleProviderOptions,
+  getCoachSmoothStreamTransform,
+} from "@/lib/coach-stream"
 import { getCoachHealthContext } from "@/lib/data"
 import { formatGeminiErrorMessage } from "@/lib/gemini-errors"
 import { getGeminiApiKey } from "@/lib/gemini-env"
@@ -17,7 +21,7 @@ import {
 import { requireAuth } from "@/lib/supabase/auth"
 import { getUserNutritionGoals } from "@/lib/user-settings"
 
-export const maxDuration = 30
+export const maxDuration = 45
 
 export async function POST(req: Request) {
   const auth = await requireAuth()
@@ -68,6 +72,8 @@ export async function POST(req: Request) {
       model: google(geminiModel),
       system: buildCoachSystemPrompt(healthContext, goals),
       messages: await convertToModelMessages(messages),
+      providerOptions: getCoachGoogleProviderOptions(),
+      experimental_transform: getCoachSmoothStreamTransform(),
     })
 
     return result.toUIMessageStreamResponse({

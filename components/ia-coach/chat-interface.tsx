@@ -5,19 +5,17 @@ import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
 import { Loader2, Send } from "lucide-react"
 
-import { ChatMessageContent } from "@/components/ia-coach/chat-message-content"
+import { CoachMessage } from "@/components/ia-coach/coach-message"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { logCoachAnalysis } from "@/lib/actions/coach-analysis"
+import {
+  getMessageText,
+  hasAssistantStreamContent,
+  type CoachMessagePart,
+} from "@/lib/coach-chat-utils"
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
 import { cn } from "@/lib/utils"
-
-function getMessageText(parts: { type: string; text?: string }[]) {
-  return parts
-    .filter((part) => part.type === "text" && part.text)
-    .map((part) => part.text)
-    .join("")
-}
 
 export function ChatInterface({ className }: { className?: string }) {
   const [input, setInput] = React.useState("")
@@ -31,11 +29,20 @@ export function ChatInterface({ className }: { className?: string }) {
   const isBusy = status === "submitted" || status === "streaming"
   const errorMessage = formatCoachErrorMessage(error)
 
+  const lastMessage = messages.at(-1)
+  const awaitingFirstToken =
+    isBusy &&
+    (status === "submitted" ||
+      (lastMessage?.role === "assistant" &&
+        !hasAssistantStreamContent(
+          (lastMessage.parts ?? []) as CoachMessagePart[]
+        )))
+
   React.useEffect(() => {
     const node = scrollRef.current
     if (!node) return
     node.scrollTop = node.scrollHeight
-  }, [messages, status])
+  }, [messages, status, awaitingFirstToken])
 
   React.useEffect(() => {
     if (isBusy || messages.length < 2) return
@@ -45,8 +52,8 @@ export function ChatInterface({ className }: { className?: string }) {
     if (last.role !== "assistant" || previous.role !== "user") return
     if (loggedAssistantIds.current.has(last.id)) return
 
-    const pergunta = getMessageText(previous.parts).trim()
-    const resposta = getMessageText(last.parts).trim()
+    const pergunta = getMessageText(previous.parts as CoachMessagePart[]).trim()
+    const resposta = getMessageText(last.parts as CoachMessagePart[]).trim()
     if (!pergunta || !resposta) return
 
     loggedAssistantIds.current.add(last.id)
@@ -82,43 +89,27 @@ export function ChatInterface({ className }: { className?: string }) {
             </p>
           </div>
         ) : (
-          messages.map((message) => {
-            const text = getMessageText(message.parts)
-            const isUser = message.role === "user"
+          messages.map((message, index) => {
+            const isLastAssistant =
+              index === messages.length - 1 && message.role === "assistant"
+            const isStreamingMessage =
+              isLastAssistant && status === "streaming"
 
             return (
-              <div
+              <CoachMessage
                 key={message.id}
-                className={cn(
-                  "flex w-full",
-                  isUser ? "justify-end" : "justify-start"
-                )}
-              >
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-3",
-                    isUser
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-muted/40 text-foreground"
-                  )}
-                >
-                  {isUser ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {text}
-                    </p>
-                  ) : (
-                    <ChatMessageContent text={text} />
-                  )}
-                </div>
-              </div>
+                role={message.role}
+                parts={(message.parts ?? []) as CoachMessagePart[]}
+                isStreaming={isStreamingMessage}
+              />
             )
           })
         )}
 
-        {isBusy ? (
+        {awaitingFirstToken ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />
-            O Coach está a pensar…
+            A preparar contexto…
           </div>
         ) : null}
 

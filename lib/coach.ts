@@ -223,6 +223,7 @@ export function buildCoachSystemPrompt(
     "Quando o utilizador perguntar pela semana, compare volume de musculação, frequência cardio, sono, HRV, PAI e nutrição usando os dados acima.",
     "Não diga que não tem acesso aos dados — use o contexto fornecido. Se um dia não tiver registo, diga explicitamente.",
     "Baseie as respostas nestes dados reais. Não invente valores.",
+    "Se o modelo expuser raciocínio interno (thinking), descreva em português do Brasil as áreas que está a cruzar: nutrição, sono, HRV, PAI, treinos Hevy (volume, RPE), cardio Zepp (pace, FC), biometria e evacuação.",
     "Responda em Markdown claro e conciso.",
   ].join(" ")
 }

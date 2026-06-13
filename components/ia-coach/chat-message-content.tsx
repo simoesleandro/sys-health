@@ -25,7 +25,19 @@ function formatInlineMarkdown(text: string) {
   })
 }
 
-export function ChatMessageContent({ text }: { text: string }) {
+function StreamingCursor() {
+  return (
+    <span className="ml-0.5 inline-block animate-pulse text-brand-cyan">▍</span>
+  )
+}
+
+export function ChatMessageContent({
+  text,
+  isStreaming = false,
+}: {
+  text: string
+  isStreaming?: boolean
+}) {
   const blocks = text.split(/\n{2,}/)
 
   return (
@@ -35,6 +47,7 @@ export function ChatMessageContent({ text }: { text: string }) {
         const isList = lines.every(
           (line) => line.trim() === "" || line.trim().startsWith("- ")
         )
+        const isLastBlock = blockIndex === blocks.length - 1
 
         if (isList && lines.some((line) => line.trim().startsWith("- "))) {
           return (
@@ -49,6 +62,7 @@ export function ChatMessageContent({ text }: { text: string }) {
                     {formatInlineMarkdown(line.replace(/^\-\s*/, ""))}
                   </li>
                 ))}
+              {isStreaming && isLastBlock ? <StreamingCursor /> : null}
             </ul>
           )
         }
@@ -65,13 +79,18 @@ export function ChatMessageContent({ text }: { text: string }) {
                   {formatInlineMarkdown(line)}
                 </p>
               ))}
+              {isStreaming && isLastBlock ? <StreamingCursor /> : null}
             </div>
           )
         }
 
         return (
-          <p key={blockIndex} className="whitespace-pre-wrap text-foreground/90">
+          <p
+            key={blockIndex}
+            className="whitespace-pre-wrap text-foreground/90"
+          >
             {formatInlineMarkdown(block)}
+            {isStreaming && isLastBlock ? <StreamingCursor /> : null}
           </p>
         )
       })}

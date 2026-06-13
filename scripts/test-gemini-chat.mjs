@@ -2,12 +2,13 @@
  * Testa a chave Gemini (não imprime segredos).
  * Uso: node scripts/test-gemini-chat.mjs
  *      node scripts/test-gemini-chat.mjs --stream
+ *      node scripts/test-gemini-chat.mjs --thinking
  */
 
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { generateText, streamText } from "ai"
+import { generateText, smoothStream, streamText } from "ai"
 
 function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local")
@@ -76,6 +77,46 @@ async function runStream(google, modelId) {
   console.log("streamText OK —", text.slice(0, 160).replace(/\s+/g, " "))
 }
 
+async function runThinking(google, modelId) {
+  const result = streamText({
+    model: google(modelId),
+    prompt:
+      "Analisa hipoteticamente uma semana com 3 treinos de musculação e 2 corridas. O que observarias?",
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          includeThoughts: true,
+          thinkingBudget: 1024,
+        },
+      },
+    },
+    experimental_transform: smoothStream({
+      delayInMs: 20,
+      chunking: "word",
+    }),
+  })
+
+  let reasoning = ""
+  let text = ""
+
+  for await (const part of result.fullStream) {
+    if (part.type === "reasoning-delta") {
+      reasoning += part.text
+      process.stdout.write(".")
+    }
+    if (part.type === "text-delta") {
+      text += part.text
+    }
+  }
+
+  console.log("")
+  console.log(
+    "reasoning OK —",
+    reasoning.slice(0, 160).replace(/\s+/g, " ") || "(vazio)"
+  )
+  console.log("text OK —", text.slice(0, 160).replace(/\s+/g, " "))
+}
+
 async function main() {
   const env = { ...process.env, ...loadEnvLocal() }
   const geminiKey = env.GEMINI_API_KEY?.trim() || null
@@ -83,6 +124,7 @@ async function main() {
   const apiKey = geminiKey || legacyKey
   const modelId = normalizeModel(env.GEMINI_MODEL)
   const useStream = process.argv.includes("--stream")
+  const useThinking = process.argv.includes("--thinking")
 
   if (!apiKey) {
     console.error("Falta GEMINI_API_KEY no .env.local")
@@ -103,11 +145,13 @@ async function main() {
   const google = createGoogleGenerativeAI({ apiKey })
 
   try {
-    if (useStream) {
+    if (useThinking) {
+      await runThinking(google, modelId)
+    } else if (useStream) {
       await runStream(google, modelId)
     } else {
       await runGenerate(google, modelId)
-      console.log("\nDica: rode com --stream para simular o IA Coach.")
+      console.log("\nDica: rode com --stream ou --thinking para simular o IA Coach.")
     }
   } catch (error) {
     const parts = []
