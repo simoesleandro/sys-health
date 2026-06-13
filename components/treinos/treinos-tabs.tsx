@@ -1,5 +1,6 @@
 "use client"
 
+import { HevySyncButton } from "@/components/layout/hevy-sync-button"
 import { ZeppSyncButton } from "@/components/layout/zepp-sync-button"
 import { HevyCard } from "@/components/treinos/hevy-card"
 import { ZeppCard } from "@/components/treinos/zepp-card"
@@ -29,6 +30,13 @@ export function TreinosTabs({
       </TabsList>
 
       <TabsContent value="hevy" className="mt-4 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/60 bg-zinc-950/50 px-3 py-2.5 backdrop-blur-md">
+          <p className="text-xs text-slate-500">
+            Treinos de musculação sincronizados do Hevy
+          </p>
+          <HevySyncButton />
+        </div>
+
         {hevyWorkouts.length === 0 ? (
           <EmptyState message="Nenhum treino Hevy sincronizado ainda." />
         ) : (

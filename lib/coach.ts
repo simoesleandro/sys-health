@@ -1,6 +1,17 @@
-import { formatSleepMinutes, type TodayAmazfitData, type TodayNutritionTotals } from "@/lib/data"
+import {
+  formatSleepMinutes,
+  type TodayAmazfitData,
+  type TodayNutritionTotals,
+} from "@/lib/data"
 import type { NutritionGoals } from "@/lib/goals"
-import type { HevyWorkout, ZeppRunSession } from "@/lib/treinos"
+import type { LatestMeasurementSummary } from "@/lib/biometry"
+import {
+  formatExerciseRpeSummary,
+  type HevyWorkout,
+  type ZeppRunSession,
+} from "@/lib/treinos"
+
+export const COACH_WEEK_DAYS = 7
 
 export type CoachEvacuationSummary = {
   count: number
@@ -24,6 +35,10 @@ export type CoachDayContext = {
 export type CoachHealthContext = {
   today: CoachDayContext
   yesterday: CoachDayContext
+  week: CoachDayContext[]
+  hevyWorkouts: HevyWorkout[]
+  zeppSessions: ZeppRunSession[]
+  latestMeasurement: LatestMeasurementSummary
 }
 
 function formatDayLabel(date: string) {
@@ -85,7 +100,7 @@ export function summarizeActivitiesForDate(
 
 function formatWearableSnapshot(day: CoachDayContext, goals: NutritionGoals) {
   if (!day.amazfit.synced) {
-    return "Wearable: sem sync hoje."
+    return "Wearable: sem sync."
   }
 
   const parts = [
@@ -130,18 +145,83 @@ function formatDaySnapshot(
   ].join(" ")
 }
 
+function formatHevyWorkoutDetail(workout: HevyWorkout) {
+  const date = brtDateFromIso(workout.dataHora) ?? workout.dataLabel
+  const header = `${date}: ${workout.titulo} — ${workout.duracaoMin ?? "?"} min, ${workout.volumeKg != null ? `${Math.round(workout.volumeKg)} kg volume` : "volume —"}`
+
+  if (!workout.exercicios.length) {
+    return header
+  }
+
+  const exercises = workout.exercicios
+    .map((exercise) => {
+      const rpe = formatExerciseRpeSummary(exercise)
+      const sets = exercise.sets.length
+      return `${exercise.title} (${sets} série${sets === 1 ? "" : "s"}, RPE ${rpe})`
+    })
+    .join("; ")
+
+  return `${header} | ${exercises}`
+}
+
+function formatZeppSessionDetail(session: ZeppRunSession) {
+  return `${session.data}: ${session.tipo} ${session.distanciaKm.toFixed(2)} km, ${session.duracaoMinutos ?? "?"} min, pace ${session.pace}${session.fcMedia ? `, FC ${Math.round(session.fcMedia)}` : ""}`
+}
+
+function formatWeekOverview(week: CoachDayContext[], goals: NutritionGoals) {
+  if (!week.length) return "Sem dados da semana."
+
+  return week
+    .map((day) => {
+      const hevyCount = [day.activities.hevy].filter(Boolean).length
+      const zeppCount = [day.activities.zepp].filter(Boolean).length
+      const wearable = day.amazfit.synced
+        ? `passos ${day.amazfit.passos}, sono ${formatSleepMinutes(day.amazfit.sonoTotalMin)}`
+        : "wearable sem sync"
+
+      return (
+        `${formatDayLabel(day.date)}: cal ${Math.round(day.nutrition.calorias)}, ` +
+        `prot ${Math.round(day.nutrition.proteinas)}g, ${wearable}, ` +
+        `treinos ${hevyCount + zeppCount} (Hevy ${hevyCount}, Zepp ${zeppCount})`
+      )
+    })
+    .join(" | ")
+}
+
+function formatMeasurementSummary(measurement: LatestMeasurementSummary) {
+  if (measurement.peso == null || !measurement.dataLabel) {
+    return "Última medição corporal: sem registo."
+  }
+
+  return `Última medição corporal: ${measurement.peso} kg em ${measurement.dataLabel}.`
+}
+
 export function buildCoachSystemPrompt(
   context: CoachHealthContext,
   goals: NutritionGoals
 ) {
+  const hevyLines =
+    context.hevyWorkouts.length > 0
+      ? context.hevyWorkouts.map(formatHevyWorkoutDetail).join(" || ")
+      : "Nenhum treino Hevy (musculação) nos últimos 7 dias."
+
+  const zeppLines =
+    context.zeppSessions.length > 0
+      ? context.zeppSessions.map(formatZeppSessionDetail).join(" || ")
+      : "Nenhuma corrida/caminhada Zepp nos últimos 7 dias."
+
   return [
     "Você é o SYS.HEALTH Coach, um assistente de saúde rigoroso, mas empático.",
-    "Tem acesso aos dados reais do utilizador em horário de Brasília (BRT) para hoje e ontem.",
-    "Inclui nutrição, wearable (passos, sono, HRV, PAI), balanço calórico, evacuação Bristol e treinos Hevy/Zepp.",
+    `Tem acesso aos dados reais do utilizador (BRT) dos últimos ${COACH_WEEK_DAYS} dias.`,
+    "Inclui nutrição, wearable (passos, sono, HRV, PAI), balanço calórico, evacuação Bristol, treinos Hevy (musculação com exercícios e RPE) e corridas Zepp.",
+    formatMeasurementSummary(context.latestMeasurement),
+    `Resumo semanal (${COACH_WEEK_DAYS} dias): ${formatWeekOverview(context.week, goals)}.`,
     formatDaySnapshot("Hoje", context.today, goals),
     formatDaySnapshot("Ontem", context.yesterday, goals),
-    "Quando o utilizador perguntar por ontem ou comparações, use os dados de ontem acima.",
-    "Para datas mais antigas, diga que só tem hoje e ontem neste contexto.",
+    `Treinos Hevy detalhados (últimos ${COACH_WEEK_DAYS} dias): ${hevyLines}.`,
+    `Cardio Zepp detalhado (últimos ${COACH_WEEK_DAYS} dias): ${zeppLines}.`,
+    "Quando o utilizador perguntar pela semana, compare volume de musculação, frequência cardio, sono, HRV, PAI e nutrição usando os dados acima.",
+    "Não diga que não tem acesso aos dados — use o contexto fornecido. Se um dia não tiver registo, diga explicitamente.",
     "Baseie as respostas nestes dados reais. Não invente valores.",
     "Responda em Markdown claro e conciso.",
   ].join(" ")

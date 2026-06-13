@@ -2,6 +2,7 @@ import { Suspense } from "react"
 
 import { HistoricoDatePicker } from "@/components/historico/date-picker"
 import { HistoryDayDetails } from "@/components/historico/history-day-details"
+import { HistoryIaAnalyses } from "@/components/historico/history-ia-analyses"
 import { HistorySummary } from "@/components/historico/history-summary"
 import { PageHeader } from "@/components/layout/page-header"
 import { PageShell } from "@/components/layout/page-shell"
@@ -56,6 +57,14 @@ export default async function HistoricoPage({ searchParams }: HistoricoPageProps
           evacuations={details.evacuations}
         />
       </div>
+
+      <Suspense
+        fallback={
+          <Skeleton className="mt-6 h-72 w-full rounded-xl border border-zinc-800/60" />
+        }
+      >
+        <HistoryIaAnalyses selectedDate={selectedDate} />
+      </Suspense>
     </PageShell>
   )
 }

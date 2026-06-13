@@ -7,6 +7,8 @@ import {
 
 import { buildCoachSystemPrompt } from "@/lib/coach"
 import { getCoachHealthContext } from "@/lib/data"
+import { formatGeminiErrorMessage } from "@/lib/gemini-errors"
+import { getGeminiApiKey } from "@/lib/gemini-env"
 import {
   formatInvalidGeminiModelMessage,
   getGeminiModelId,
@@ -17,11 +19,6 @@ import { getUserNutritionGoals } from "@/lib/user-settings"
 
 export const maxDuration = 30
 
-const google = createGoogleGenerativeAI({
-  apiKey:
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-})
-
 export async function POST(req: Request) {
   const auth = await requireAuth()
   if (auth.error) {
@@ -31,8 +28,7 @@ export async function POST(req: Request) {
     })
   }
 
-  const apiKey =
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  const apiKey = getGeminiApiKey()
 
   if (!apiKey) {
     return new Response(
@@ -44,7 +40,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const { messages }: { messages: UIMessage[] } = await req.json()
+  const google = createGoogleGenerativeAI({ apiKey })
 
   const geminiModel = getGeminiModelId()
   if (!isValidGeminiModelId(geminiModel)) {
@@ -53,6 +49,14 @@ export async function POST(req: Request) {
       { status: 503, headers: { "Content-Type": "application/json" } }
     )
   }
+
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  console.log("[POST /api/chat] gemini", {
+    model: geminiModel,
+    keyFingerprint: `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`,
+    vercel: Boolean(process.env.VERCEL),
+  })
 
   const [healthContext, goals] = await Promise.all([
     getCoachHealthContext(),
@@ -66,13 +70,12 @@ export async function POST(req: Request) {
       messages: await convertToModelMessages(messages),
     })
 
-    return result.toUIMessageStreamResponse()
+    return result.toUIMessageStreamResponse({
+      onError: (error) => formatGeminiErrorMessage(error, "coach"),
+    })
   } catch (error) {
     console.error("[POST /api/chat]", error)
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Não foi possível contactar o modelo Gemini."
+    const message = formatGeminiErrorMessage(error, "coach")
 
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

@@ -91,7 +91,7 @@ export async function fetchHevyWorkoutsPage(
 export function mapHevyWorkoutToRow(workout: HevyApiWorkout): HevyDbRow {
   const exercises = (workout.exercises ?? []).map((exercise) => {
     const sets = (exercise.sets ?? []).map((set, index) => ({
-      index: Number(set.index ?? index + 1),
+      index,
       type: String(set.type ?? "normal"),
       weight_kg: set.weight_kg == null ? null : Number(set.weight_kg),
       reps: set.reps == null ? null : Number(set.reps),

@@ -130,12 +130,14 @@ export function parseHevyExercises(raw: unknown): HevyExercise[] {
       const setsRaw = Array.isArray(exercise.sets) ? exercise.sets : []
 
       const sets = setsRaw
-        .map((setItem) => {
+        .map((setItem, setIndex) => {
           if (!setItem || typeof setItem !== "object") return null
           const set = setItem as Record<string, unknown>
+          const parsedIndex = Number(set.index)
+          const index = Number.isFinite(parsedIndex) ? parsedIndex : setIndex
 
           return {
-            index: Number(set.index ?? 0),
+            index,
             type: String(set.type ?? "normal"),
             weightKg:
               set.weight_kg == null ? null : Number(set.weight_kg),
@@ -231,4 +233,32 @@ export function formatExerciseRpeSummary(exercise: HevyExercise) {
 
   const lastSet = workingSets[workingSets.length - 1]
   return String(lastSet.rpe)
+}
+
+export function getWorkoutAverageRpe(workout: HevyWorkout): number | null {
+  const rpes = workout.exercicios
+    .map((exercise) => {
+      const workingSets = exercise.sets.filter(
+        (set) =>
+          set.type === "normal" && set.rpe != null && Number.isFinite(set.rpe)
+      )
+      if (!workingSets.length) return null
+      return workingSets[workingSets.length - 1].rpe
+    })
+    .filter((rpe): rpe is number => rpe != null)
+
+  if (!rpes.length) return null
+
+  const avg = rpes.reduce((sum, rpe) => sum + rpe, 0) / rpes.length
+  return Math.round(avg * 10) / 10
+}
+
+export function formatWorkoutAverageRpe(workout: HevyWorkout) {
+  const avg = getWorkoutAverageRpe(workout)
+  if (avg == null) return "—"
+  return String(avg)
+}
+
+export function countWorkoutSets(workout: HevyWorkout) {
+  return workout.exercicios.reduce((sum, exercise) => sum + exercise.sets.length, 0)
 }

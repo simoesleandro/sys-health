@@ -8,6 +8,7 @@ import { Loader2, Send } from "lucide-react"
 import { ChatMessageContent } from "@/components/ia-coach/chat-message-content"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { logCoachAnalysis } from "@/lib/actions/coach-analysis"
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +22,7 @@ function getMessageText(parts: { type: string; text?: string }[]) {
 export function ChatInterface({ className }: { className?: string }) {
   const [input, setInput] = React.useState("")
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const loggedAssistantIds = React.useRef(new Set<string>())
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -34,6 +36,22 @@ export function ChatInterface({ className }: { className?: string }) {
     if (!node) return
     node.scrollTop = node.scrollHeight
   }, [messages, status])
+
+  React.useEffect(() => {
+    if (isBusy || messages.length < 2) return
+
+    const last = messages[messages.length - 1]
+    const previous = messages[messages.length - 2]
+    if (last.role !== "assistant" || previous.role !== "user") return
+    if (loggedAssistantIds.current.has(last.id)) return
+
+    const pergunta = getMessageText(previous.parts).trim()
+    const resposta = getMessageText(last.parts).trim()
+    if (!pergunta || !resposta) return
+
+    loggedAssistantIds.current.add(last.id)
+    void logCoachAnalysis({ pergunta, resposta })
+  }, [isBusy, messages])
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()

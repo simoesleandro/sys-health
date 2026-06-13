@@ -2,6 +2,7 @@ import { Footprints } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { NeonCard } from "@/components/ui/neon-card"
+import { WorkoutMetric } from "@/components/treinos/workout-metric"
 import { cn } from "@/lib/utils"
 import {
   formatDistanceKm,
@@ -17,21 +18,6 @@ function activityBadgeClass(tipo: ZeppActivityType) {
     return "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20"
   }
   return "border-chart-2/30 bg-chart-2/15 text-chart-2 hover:bg-chart-2/20"
-}
-
-function Metric({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-sm font-semibold text-white">{value}</span>
-    </div>
-  )
 }
 
 export function ZeppCard({ session }: { session: ZeppRunSession }) {
@@ -59,20 +45,20 @@ export function ZeppCard({ session }: { session: ZeppRunSession }) {
 
       <div className="px-4 py-4">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Metric
+          <WorkoutMetric
             label="Distância"
             value={formatDistanceKm(session.distanciaKm)}
           />
-          <Metric
+          <WorkoutMetric
             label="Calorias"
             value={formatRunCalories(session.calorias)}
           />
-          <Metric label="Pace médio" value={session.pace} />
-          <Metric
+          <WorkoutMetric label="Pace médio" value={session.pace} />
+          <WorkoutMetric
             label="Duração"
             value={formatDurationMin(session.duracaoMinutos)}
           />
-          <Metric
+          <WorkoutMetric
             label="FC média"
             value={formatHeartRate(session.fcMedia)}
           />

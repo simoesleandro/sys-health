@@ -1,5 +1,8 @@
-import { MEASUREMENT_FIELDS } from "@/lib/biometry"
-import { formatMeasurementDateLabel } from "@/lib/biometry"
+import {
+  MEASUREMENT_FIELDS,
+  formatMeasurementDateLabel,
+  pickLatestMeasurementRecord,
+} from "@/lib/biometry"
 import { getMeasurementsHistory } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -28,8 +31,9 @@ export async function MeasurementsHistoryTable() {
     )
   }
 
+  const latestRecord = pickLatestMeasurementRecord(records)
+  const latestRecordId = latestRecord?.id ?? null
   const recent = [...records].reverse().slice(0, 24)
-  const latestRecordId = records.at(-1)?.id ?? null
 
   return (
     <section className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-5">
@@ -43,7 +47,7 @@ export async function MeasurementsHistoryTable() {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[720px] border-separate border-spacing-0 text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60 text-[10px] font-bold tracking-[0.12em] text-slate-500 uppercase">
               <th className="px-2 py-2">Data</th>
@@ -54,41 +58,46 @@ export async function MeasurementsHistoryTable() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800/40">
+          <tbody>
             {recent.map((record) => {
               const isLatest = record.id === latestRecordId
 
               return (
-              <tr
-                key={record.id}
-                className={cn(
-                  "text-slate-300",
-                  isLatest &&
-                    "border-l-2 border-brand-cyan bg-brand-cyan/5 text-white"
-                )}
-              >
-                <td className="whitespace-nowrap px-2 py-2 font-medium text-white">
-                  <span className="inline-flex items-center gap-2">
-                    {formatMeasurementDateLabel(record.data)}
-                    {isLatest ? (
-                      <span className="rounded-full bg-brand-cyan/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-cyan uppercase">
-                        Mais recente
-                      </span>
-                    ) : null}
-                  </span>
-                </td>
-                {MEASUREMENT_FIELDS.map((field) => (
+                <tr
+                  key={record.id}
+                  className={cn(
+                    "border-b border-zinc-800/40 text-slate-300",
+                    isLatest && "bg-brand-cyan/10"
+                  )}
+                >
                   <td
-                    key={field.key}
                     className={cn(
-                      "px-2 py-2 tabular-nums",
-                      isLatest && "font-semibold text-white"
+                      "whitespace-nowrap px-2 py-2.5 font-medium text-white",
+                      isLatest &&
+                        "border-l-4 border-brand-cyan bg-brand-cyan/10 pl-3"
                     )}
                   >
-                    {formatValue(record[field.key])}
+                    <span className="inline-flex items-center gap-2">
+                      {formatMeasurementDateLabel(record.data)}
+                      {isLatest ? (
+                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/20 px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-cyan uppercase">
+                          Mais recente
+                        </span>
+                      ) : null}
+                    </span>
                   </td>
-                ))}
-              </tr>
+                  {MEASUREMENT_FIELDS.map((field) => (
+                    <td
+                      key={field.key}
+                      className={cn(
+                        "px-2 py-2.5 tabular-nums",
+                        isLatest && "bg-brand-cyan/10 font-semibold text-white"
+                      )}
+                    >
+                      {formatValue(record[field.key])}
+                    </td>
+                  ))}
+                </tr>
               )
             })}
           </tbody>

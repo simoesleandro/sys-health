@@ -54,8 +54,33 @@ export const EMPTY_MEASUREMENT_INPUT: MeasurementInput = {
   biceps_esq: null,
 }
 
+export function normalizeMeasurementDate(value: unknown): string {
+  const raw = String(value).trim()
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw)
+  return match ? match[1] : raw.slice(0, 10)
+}
+
+export function pickLatestMeasurementRecord(
+  records: MeasurementRecord[]
+): MeasurementRecord | null {
+  if (!records.length) return null
+
+  return records.reduce<MeasurementRecord | null>((latest, record) => {
+    if (!latest) return record
+
+    const latestDate = normalizeMeasurementDate(latest.data)
+    const recordDate = normalizeMeasurementDate(record.data)
+
+    if (recordDate > latestDate) return record
+    if (recordDate < latestDate) return latest
+
+    return record.id > latest.id ? record : latest
+  }, null)
+}
+
 export function formatMeasurementDateLabel(date: string) {
-  const [year, month, day] = date.split("-").map(Number)
+  const normalized = normalizeMeasurementDate(date)
+  const [year, month, day] = normalized.split("-").map(Number)
   const parsed = new Date(year, month - 1, day)
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -75,7 +100,7 @@ export const MEASUREMENT_SELECT =
 export function mapMeasurementRow(row: Record<string, unknown>): MeasurementRecord {
   return {
     id: Number(row.id),
-    data: String(row.data),
+    data: normalizeMeasurementDate(row.data),
     peso: row.peso == null ? null : Number(row.peso),
     cintura: row.cintura == null ? null : Number(row.cintura),
     abdomen: row.abdomen == null ? null : Number(row.abdomen),

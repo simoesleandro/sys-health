@@ -1,5 +1,7 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
+
 import type { MealAnalysisItem } from "@/lib/meal-analysis"
 import { requireAuth } from "@/lib/supabase/auth"
 
@@ -34,6 +36,8 @@ export async function logMealAnalysis(input: {
       console.warn("[logMealAnalysis] table missing or insert failed:", error.message)
       return { success: true as const, skipped: true as const }
     }
+
+    revalidatePath("/historico")
 
     return { success: true as const, skipped: false as const }
   } catch (error) {

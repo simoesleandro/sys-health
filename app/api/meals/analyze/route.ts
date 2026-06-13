@@ -12,16 +12,12 @@ import {
   getGeminiModelId,
   isValidGeminiModelId,
 } from "@/lib/gemini-model"
+import { getGeminiApiKey } from "@/lib/gemini-env"
 import { requireAuth } from "@/lib/supabase/auth"
 
 export const maxDuration = 60
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-
-const google = createGoogleGenerativeAI({
-  apiKey:
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-})
 
 type AnalyzeBody =
   | { mode: "text"; text: string }
@@ -38,8 +34,7 @@ export async function POST(req: Request) {
     return Response.json({ error: auth.error }, { status: 401 })
   }
 
-  const apiKey =
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  const apiKey = getGeminiApiKey()
 
   if (!apiKey) {
     return Response.json(
@@ -65,6 +60,8 @@ export async function POST(req: Request) {
       { status: 503 }
     )
   }
+
+  const google = createGoogleGenerativeAI({ apiKey })
 
   try {
     if (body.mode === "text") {

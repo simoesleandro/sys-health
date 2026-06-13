@@ -1,9 +1,4 @@
-import {
-  extractErrorMessage,
-  formatGeminiCreditsDepletedMessage,
-  isGeminiCreditsDepleted,
-  matchGeminiErrorMessage,
-} from "@/lib/gemini-errors"
+import { formatGeminiErrorMessage } from "@/lib/gemini-errors"
 
 export type MealAnalysisItem = {
   nome: string
@@ -98,28 +93,5 @@ export function parseMealAnalysisResponse(rawText: string): MealAnalysisResult {
 }
 
 export function formatMealAnalysisError(error: unknown) {
-  const message = extractErrorMessage(error)
-
-  if (isGeminiCreditsDepleted(message)) {
-    return formatGeminiCreditsDepletedMessage("meal")
-  }
-
-  const matched = matchGeminiErrorMessage(message)
-  if (matched) return matched
-
-  try {
-    const parsed = JSON.parse(message) as { error?: string }
-    if (parsed.error) {
-      if (isGeminiCreditsDepleted(parsed.error)) {
-        return formatGeminiCreditsDepletedMessage("meal")
-      }
-      const nested = matchGeminiErrorMessage(parsed.error)
-      if (nested) return nested
-      return parsed.error
-    }
-  } catch {
-    // ignore
-  }
-
-  return message || "Não foi possível analisar a refeição."
+  return formatGeminiErrorMessage(error, "meal")
 }

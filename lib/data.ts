@@ -8,6 +8,12 @@ import {
   type MeasurementInput,
   type MeasurementRecord,
 } from "@/lib/biometry"
+import type { MealAnalysisItem } from "@/lib/meal-analysis"
+import {
+  brtDateFromIso,
+  formatIaCreatedLabel,
+  type IaHistoryEntry,
+} from "@/lib/ia-analyses"
 import type { FavoriteFood } from "@/lib/foods"
 import type { NutritionGoals } from "@/lib/goals"
 import {
@@ -17,6 +23,7 @@ import {
 } from "@/lib/evacuation"
 import {
   formatMealTimeBrt,
+  brtDateFromDataHora,
   getBrtTodayUtcBounds,
   getBrtUtcBoundsForDate,
   getBrtUtcBoundsForOffset,
@@ -366,8 +373,13 @@ async function getEvacuationsForBrtBounds(startIso: string, endIso: string) {
 }
 
 export const getCoachHealthContext = cache(async () => {
+  const COACH_CONTEXT_DAYS = 7
   const todayBounds = getBrtTodayUtcBounds()
   const yesterdayBounds = getBrtUtcBoundsForOffset(1)
+
+  const weekBounds = Array.from({ length: COACH_CONTEXT_DAYS }, (_, index) =>
+    getBrtUtcBoundsForOffset(index)
+  )
 
   const [
     goals,
@@ -379,6 +391,8 @@ export const getCoachHealthContext = cache(async () => {
     yesterdayEvacuations,
     recentHevy,
     recentZepp,
+    latestMeasurement,
+    ...weekDayData
   ] = await Promise.all([
     getUserNutritionGoals(),
     getTodayNutritionTotals(),
@@ -390,14 +404,32 @@ export const getCoachHealthContext = cache(async () => {
       yesterdayBounds.startIso,
       yesterdayBounds.endIso
     ),
-    getRecentHevyWorkouts(8),
-    getZeppRunningSessions(8),
+    getRecentHevyWorkouts(30),
+    getZeppRunningSessions(30),
+    getLatestMeasurement(),
+    ...weekBounds.flatMap(({ brtDate, startIso, endIso }) => [
+      getNutritionTotalsForDate(brtDate),
+      getAmazfitDataForDate(brtDate),
+      getEvacuationsForBrtBounds(startIso, endIso),
+    ]),
   ])
 
   const {
     summarizeActivitiesForDate,
     summarizeEvacuations,
   } = await import("@/lib/coach")
+
+  const weekStartDate =
+    weekBounds[weekBounds.length - 1]?.brtDate ?? todayBounds.brtDate
+
+  const hevyWorkouts = recentHevy.filter((workout) => {
+    const date = brtDateFromDataHora(workout.dataHora)
+    return date >= weekStartDate
+  })
+
+  const zeppSessions = recentZepp.filter(
+    (session) => session.data >= weekStartDate
+  )
 
   const buildDay = (
     date: string,
@@ -414,8 +446,23 @@ export const getCoachHealthContext = cache(async () => {
       goals.TMB_KCAL
     ),
     evacuations: summarizeEvacuations(evacuations),
-    activities: summarizeActivitiesForDate(date, recentHevy, recentZepp),
+    activities: summarizeActivitiesForDate(date, hevyWorkouts, zeppSessions),
   })
+
+  const week: ReturnType<typeof buildDay>[] = []
+  for (let index = 0; index < weekBounds.length; index++) {
+    const offset = index * 3
+    week.push(
+      buildDay(
+        weekBounds[index].brtDate,
+        weekDayData[offset] as TodayNutritionTotals,
+        weekDayData[offset + 1] as TodayAmazfitData,
+        weekDayData[offset + 2] as Awaited<
+          ReturnType<typeof getEvacuationsForBrtBounds>
+        >
+      )
+    )
+  }
 
   return {
     today: buildDay(
@@ -430,6 +477,10 @@ export const getCoachHealthContext = cache(async () => {
       yesterdayAmazfit,
       yesterdayEvacuations
     ),
+    week: week.reverse(),
+    hevyWorkouts,
+    zeppSessions,
+    latestMeasurement,
   }
 })
 
@@ -696,6 +747,7 @@ export const getMeasurementsHistory = cache(
         .select(MEASUREMENT_SELECT)
         .gte("data", MEASUREMENTS_HISTORY_START_DATE)
         .order("data", { ascending: true })
+        .order("id", { ascending: true })
 
       if (error) throw error
 
@@ -838,8 +890,8 @@ export const getLatestMeasurement = cache(
       const { data, error } = await supabase
         .from("medidas")
         .select("data, peso")
-        .not("peso", "is", null)
         .order("data", { ascending: false })
+        .order("id", { ascending: false })
         .limit(1)
         .maybeSingle()
 
@@ -1307,6 +1359,122 @@ export const getTodayEvacuations = cache(
       })
     } catch (error) {
       console.error("[getTodayEvacuations]", error)
+      return []
+    }
+  }
+)
+
+const IA_ANALYSES_HISTORY_LIMIT = 100
+
+function parseMealAnalysisItems(raw: unknown): MealAnalysisItem[] {
+  if (!Array.isArray(raw)) return []
+
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null
+      const row = item as Record<string, unknown>
+      const nome = String(row.nome ?? "").trim()
+      if (!nome) return null
+
+      const qtd = Number(row.qtd)
+      const calorias = Number(row.calorias)
+
+      return {
+        nome,
+        qtd: Number.isFinite(qtd) ? qtd : 0,
+        unidade: String(row.unidade ?? "g"),
+        calorias: Number.isFinite(calorias) ? calorias : 0,
+        proteinas: Number(row.proteinas ?? 0),
+        carboidratos: Number(row.carboidratos ?? 0),
+        gorduras: Number(row.gorduras ?? 0),
+      } satisfies MealAnalysisItem
+    })
+    .filter((item): item is MealAnalysisItem => item != null)
+}
+
+export const getIaAnalysesHistory = cache(
+  async (limit = IA_ANALYSES_HISTORY_LIMIT): Promise<IaHistoryEntry[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    const safeLimit = Math.min(Math.max(1, limit), IA_ANALYSES_HISTORY_LIMIT)
+
+    try {
+      const [coachResult, mealResult] = await Promise.all([
+        supabase
+          .from("ia_analises_coach")
+          .select("id, pergunta, resposta, criado_em")
+          .order("criado_em", { ascending: false })
+          .limit(safeLimit),
+        supabase
+          .from("ia_analises_refeicao")
+          .select(
+            "id, tipo, entrada_texto, imagem_nome, itens_parseados_json, criado_em"
+          )
+          .order("criado_em", { ascending: false })
+          .limit(safeLimit),
+      ])
+
+      if (coachResult.error) {
+        console.warn("[getIaAnalysesHistory] coach:", coachResult.error.message)
+      }
+
+      if (mealResult.error) {
+        console.warn("[getIaAnalysesHistory] meal:", mealResult.error.message)
+      }
+
+      const coachEntries: IaHistoryEntry[] = (coachResult.data ?? []).map(
+        (row) => {
+          const createdAt = String(row.criado_em)
+          return {
+            id: `coach-${row.id}`,
+            kind: "coach",
+            createdAt,
+            createdLabel: formatIaCreatedLabel(createdAt),
+            brtDate: brtDateFromIso(createdAt),
+            entrada: String(row.pergunta ?? ""),
+            resposta: String(row.resposta ?? ""),
+            mealItems: [],
+          }
+        }
+      )
+
+      const mealEntries: IaHistoryEntry[] = (mealResult.data ?? []).map(
+        (row) => {
+          const createdAt = String(row.criado_em)
+          const tipo = row.tipo === "foto" ? "meal-photo" : "meal-text"
+          const items = parseMealAnalysisItems(row.itens_parseados_json)
+          const entrada =
+            row.entrada_texto?.trim() ||
+            (row.imagem_nome
+              ? `Foto: ${String(row.imagem_nome)}`
+              : tipo === "meal-photo"
+                ? "Análise por foto"
+                : null)
+
+          return {
+            id: `meal-${row.id}`,
+            kind: tipo,
+            createdAt,
+            createdLabel: formatIaCreatedLabel(createdAt),
+            brtDate: brtDateFromIso(createdAt),
+            entrada,
+            resposta: items
+              .map(
+                (item) =>
+                  `${item.nome} — ${Math.round(item.calorias)} kcal, P ${Math.round(item.proteinas)}g`
+              )
+              .join("\n"),
+            mealItems: items,
+          }
+        }
+      )
+
+      return [...coachEntries, ...mealEntries]
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, safeLimit)
+    } catch (error) {
+      console.error("[getIaAnalysesHistory]", error)
       return []
     }
   }
