@@ -56,6 +56,7 @@ export function EditMealModal() {
     if (!open || mealId == null) return
 
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingMeal(true)
     setError(null)
 
@@ -92,6 +93,7 @@ export function EditMealModal() {
 
     const term = query.trim()
     if (term.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([])
       setIsSearching(false)
       return

@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Settings, Star } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Star } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -48,6 +48,7 @@ export function AppSidebar({
   userInitials: string
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const {
     openMealModal,
     openWaterModal,
@@ -72,7 +73,7 @@ export function AppSidebar({
     }
     if (dialog === "agua") openWaterModal()
     if (dialog === "suplemento") openSupplementModal()
-    if (dialog === "banco") window.location.href = bancoNavItem.href
+    if (dialog === "banco") router.push(bancoNavItem.href)
   }
 
   return (

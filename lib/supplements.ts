@@ -273,37 +273,6 @@ function defaultDoseForKind(kind: SupplementKind, slot: number, total: number) {
   }
 }
 
-function buildSlotLabel(
-  nome: string,
-  marca: string,
-  kind: SupplementKind,
-  slot: number,
-  total: number
-) {
-  const brand = marca.trim()
-  const doseSuffix = total > 1 ? ` — Dose ${slot}` : ""
-  if (kind.startsWith("whey")) {
-    return `${nome.trim()} ${brand} 30g${doseSuffix}`
-  }
-  return brand ? `${nome.trim()} ${brand}` : nome.trim()
-}
-
-function buildSlotDescricao(
-  nome: string,
-  marca: string,
-  kind: SupplementKind,
-  slot: number,
-  total: number
-) {
-  const brand = marca.trim()
-  const base = brand ? `${nome.trim()} ${brand}` : nome.trim()
-  if (kind.startsWith("whey")) {
-    return total > 1 ? `${base} (30g) — Dose ${slot}` : `${base} (30g)`
-  }
-  const dose = defaultDoseForKind(kind, slot, total)
-  return `${base} (${dose})`
-}
-
 export type GeneratedSupplementConfig = {
   presetId: string
   nome: string
@@ -448,10 +417,7 @@ export function productFamilyKey(
   return `${item.nome.trim()}|${item.marca.trim()}`
 }
 
-export function familySlugForCategory(
-  item: VisualSupplement,
-  category: SupplementCategory
-) {
+export function familySlugForCategory(item: VisualSupplement) {
   return slugifyPresetId(productFamilyKey(item).replace(/\|/g, "-"))
 }
 
@@ -514,7 +480,7 @@ export function suppFamilyPresetId(
   category: SupplementCategory,
   item: VisualSupplement
 ) {
-  return `supp-family:${category}:${familySlugForCategory(item, category)}`
+  return `supp-family:${category}:${familySlugForCategory(item)}`
 }
 
 export function parseSuppFamilyPresetId(id: string) {
@@ -554,7 +520,7 @@ function findFamilyBySlug(
   for (const [, slots] of groupFamiliesInCategory(category, configs)) {
     const representative = normalizeFamilySlots(slots, new Map())[0]
     if (!representative) continue
-    if (familySlugForCategory(representative, category) === familySlug) {
+    if (familySlugForCategory(representative) === familySlug) {
       return representative
     }
   }
@@ -963,19 +929,6 @@ export function groupWheyByNome<T extends VisualSupplement>(items: T[]) {
   return groupWheyFamilies(items)
 }
 
-function findWheyFamilyBySlug<T extends VisualSupplement & { sortOrder?: number }>(
-  items: T[],
-  familySlug: string,
-  taken: Map<string, number> = new Map()
-) {
-  for (const [, slots] of groupWheyFamilies(items)) {
-    const first = slots[0]
-    if (slugifyFamilyKey(wheyFamilyKey(first)) !== familySlug) continue
-    return normalizeWheyFamilySlots(slots, taken)
-  }
-  return undefined
-}
-
 function parseMealWheySlotIndex(meal: TodayMeal) {
   const fromDescricao = meal.descricao.match(/dose\s*(\d+)/i)
   if (fromDescricao) return Number(fromDescricao[1])
@@ -999,24 +952,6 @@ function mealMatchesWheySlot(meal: TodayMeal, slot: VisualSupplement) {
     if (mealSlotIndex != null && mealSlotIndex !== slotIndex) return false
     return true
   })
-}
-
-function buildDailyWheyLabel(
-  displayName: string,
-  marca: string
-) {
-  const brand = marca.trim()
-  return brand ? `${displayName} ${brand} 30g` : `${displayName} 30g`
-}
-
-function buildDailyWheyDescricao(
-  displayName: string,
-  marca: string,
-  dailySlot: number
-) {
-  const brand = marca.trim()
-  const base = brand ? `${displayName} ${brand}` : displayName
-  return `${base} (30g) — Whey ${dailySlot} do dia`
 }
 
 function inferWheyFamilyFromMealText(

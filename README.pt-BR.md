@@ -167,4 +167,4 @@ Documentação detalhada do ecossistema: [`GUIA-DO-PROJETO.md`](./GUIA-DO-PROJET
 
 ## Licença
 
-Projeto privado / uso pessoal. Consulte o repositório principal para mais contexto.
+Projeto pessoal e público de portfólio. Nenhuma licença aberta foi definida neste repositório.

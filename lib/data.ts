@@ -30,9 +30,7 @@ import {
   parseDataHoraUtcMs,
 } from "@/lib/brt-time"
 import {
-  formatComponentQuantity,
   parseComponentesJson,
-  type MealComponent,
   type TodayMeal,
 } from "@/lib/meal-types"
 import {
@@ -932,13 +930,19 @@ export function measurementToInput(
     }
   }
 
-  const {
-    id: _id,
-    data: _data,
-    ...input
-  } = record
-
-  return input
+  return {
+    peso: record.peso,
+    cintura: record.cintura,
+    abdomen: record.abdomen,
+    peitoral: record.peitoral,
+    quadril: record.quadril,
+    coxa_dir: record.coxa_dir,
+    coxa_esq: record.coxa_esq,
+    panturrilha_dir: record.panturrilha_dir,
+    panturrilha_esq: record.panturrilha_esq,
+    biceps_dir: record.biceps_dir,
+    biceps_esq: record.biceps_esq,
+  }
 }
 
 export type SyncSourceStatus = {

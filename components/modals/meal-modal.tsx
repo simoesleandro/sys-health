@@ -135,6 +135,7 @@ export function MealModal() {
 
     const term = query.trim()
     if (term.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([])
       setIsSearching(false)
       return

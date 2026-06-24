@@ -162,13 +162,6 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  const [isHydrated, setIsHydrated] = React.useState(false)
-
-  React.useEffect(() => {
-    setIsHydrated(true)
-  }, [])
-
-  const showMobileSidebar = isHydrated && isMobile
 
   if (collapsible === "none") {
     return (
@@ -185,7 +178,7 @@ function Sidebar({
     )
   }
 
-  if (showMobileSidebar) {
+  if (isMobile) {
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Menu } from "lucide-react"
 import * as React from "react"
 
@@ -28,6 +28,7 @@ import { NavLink } from "@/components/layout/nav-link"
 
 export function MobileBottomBar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [menuOpen, setMenuOpen] = React.useState(false)
   const {
     openMealModal,
@@ -42,7 +43,7 @@ export function MobileBottomBar() {
     if (dialog === "editar") openEditMealsFlow()
     if (dialog === "agua") openWaterModal()
     if (dialog === "suplemento") openSupplementModal()
-    if (dialog === "banco") window.location.href = bancoNavItem.href
+    if (dialog === "banco") router.push(bancoNavItem.href)
   }
 
   const overflowActive = [...mainNavItems, settingsNavItem, bancoNavItem]

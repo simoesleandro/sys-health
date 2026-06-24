@@ -75,6 +75,7 @@ export function FoodFormModal({
 
   React.useEffect(() => {
     if (!open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(food ? foodToForm(food) : EMPTY_FORM)
     setError(null)
   }, [open, food])

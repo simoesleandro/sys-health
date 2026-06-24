@@ -61,6 +61,7 @@ export function SupplementFormModal({
   useEffect(() => {
     if (!open) return
     if (editing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         nome: getSupplementDisplayName(editing),
         marca: editing.marca,

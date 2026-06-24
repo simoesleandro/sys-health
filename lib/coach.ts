@@ -168,7 +168,7 @@ function formatZeppSessionDetail(session: ZeppRunSession) {
   return `${session.data}: ${session.tipo} ${session.distanciaKm.toFixed(2)} km, ${session.duracaoMinutos ?? "?"} min, pace ${session.pace}${session.fcMedia ? `, FC ${Math.round(session.fcMedia)}` : ""}`
 }
 
-function formatWeekOverview(week: CoachDayContext[], goals: NutritionGoals) {
+function formatWeekOverview(week: CoachDayContext[]) {
   if (!week.length) return "Sem dados da semana."
 
   return week
@@ -215,7 +215,7 @@ export function buildCoachSystemPrompt(
     `Tem acesso aos dados reais do utilizador (BRT) dos últimos ${COACH_WEEK_DAYS} dias.`,
     "Inclui nutrição, wearable (passos, sono, HRV, PAI), balanço calórico, evacuação Bristol, treinos Hevy (musculação com exercícios e RPE) e corridas Zepp.",
     formatMeasurementSummary(context.latestMeasurement),
-    `Resumo semanal (${COACH_WEEK_DAYS} dias): ${formatWeekOverview(context.week, goals)}.`,
+    `Resumo semanal (${COACH_WEEK_DAYS} dias): ${formatWeekOverview(context.week)}.`,
     formatDaySnapshot("Hoje", context.today, goals),
     formatDaySnapshot("Ontem", context.yesterday, goals),
     `Treinos Hevy detalhados (últimos ${COACH_WEEK_DAYS} dias): ${hevyLines}.`,

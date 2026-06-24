@@ -24,19 +24,10 @@ export function CoachAssistantContent({
     isStreaming && textParts.some((part) => part.state === "streaming")
   const hasResponseText = Boolean(responseText.trim())
 
-  const [reasoningCollapsed, setReasoningCollapsed] = React.useState(false)
-
-  React.useEffect(() => {
-    if (hasResponseText && !reasoningStreaming) {
-      setReasoningCollapsed(true)
-    }
-  }, [hasResponseText, reasoningStreaming])
-
-  React.useEffect(() => {
-    if (isStreaming && reasoningStreaming && !hasResponseText) {
-      setReasoningCollapsed(false)
-    }
-  }, [isStreaming, reasoningStreaming, hasResponseText])
+  const [manualReasoningCollapsed, setManualReasoningCollapsed] =
+    React.useState<boolean | null>(null)
+  const reasoningCollapsed =
+    manualReasoningCollapsed ?? (hasResponseText && !reasoningStreaming)
 
   return (
     <div className="flex flex-col gap-3">
@@ -45,7 +36,11 @@ export function CoachAssistantContent({
           text={reasoningText}
           streaming={reasoningStreaming || (isStreaming && !hasResponseText)}
           collapsed={reasoningCollapsed}
-          onToggle={() => setReasoningCollapsed((current) => !current)}
+          onToggle={() =>
+            setManualReasoningCollapsed((current) =>
+              current == null ? !reasoningCollapsed : !current
+            )
+          }
         />
       ) : null}
 

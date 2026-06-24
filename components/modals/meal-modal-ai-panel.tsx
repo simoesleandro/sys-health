@@ -37,13 +37,13 @@ export function MealModalAiPanel({
 }) {
   const [text, setText] = React.useState("")
   const [fileName, setFileName] = React.useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<MealAnalysisItem[]>([])
   const [rawResponse, setRawResponse] = React.useState<unknown>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [isAnalyzing, startAnalyze] = React.useTransition()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const selectedFileRef = React.useRef<File | null>(null)
 
   React.useEffect(() => {
     return () => {
@@ -91,7 +91,7 @@ export function MealModalAiPanel({
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    selectedFileRef.current = file ?? null
+    setSelectedFile(file ?? null)
     resetPreview()
 
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -107,7 +107,7 @@ export function MealModalAiPanel({
   }
 
   function handleAnalyzePhoto() {
-    const file = selectedFileRef.current
+    const file = selectedFile
     if (!file) {
       setError("Selecione uma foto antes de analisar.")
       return
@@ -165,7 +165,7 @@ export function MealModalAiPanel({
 
     setText("")
     setFileName(null)
-    selectedFileRef.current = null
+    setSelectedFile(null)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     setItems([])
@@ -235,7 +235,7 @@ export function MealModalAiPanel({
           <Button
             type="button"
             variant="outline"
-            disabled={isAnalyzing || !selectedFileRef.current}
+            disabled={isAnalyzing || !selectedFile}
             onClick={handleAnalyzePhoto}
           >
             {isAnalyzing ? (

@@ -18,7 +18,6 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com)
 [![Gemini](https://img.shields.io/badge/Gemini-2.5--Flash-4285F4?style=flat-square&logo=google)](https://aistudio.google.com)
 [![PWA](https://img.shields.io/badge/PWA-offline--ready-8b5cf6?style=flat-square)](https://web.dev/progressive-web-apps)
-[![License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/simoesleandro/sys-health?style=flat-square&color=8b5cf6)](https://github.com/simoesleandro/sys-health/commits)
 
 <br/>
@@ -210,15 +209,17 @@ Dashboard com dados em tempo real
 
 ---
 
-## 🧪 Testes / Tests
+## 🧪 Qualidade / Quality
 
 ```bash
-# Rodar testes
-npm run test
+# Static analysis
+npm run lint
 
-# Com cobertura
-npm run test:coverage
+# Production build
+npm run build
 ```
+
+> Validação atual: ESLint limpo e build Next.js de produção concluído. Testes automatizados com Supabase ainda estão no roadmap.
 
 ---
 
@@ -236,7 +237,6 @@ npm run test:coverage
 - [ ] AI Coach com histórico de conversas (issue #2)
 - [ ] Export PDF relatório mensal (issue #3)
 - [ ] Testes Supabase (issue #4)
-- [ ] Alertas de disco e saúde do sistema (issue #5)
 
 ---
 
