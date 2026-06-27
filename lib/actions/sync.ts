@@ -9,11 +9,8 @@ import {
   createServiceSupabase,
   type ServerSupabaseClient,
 } from "@/lib/supabase/server"
-import {
-  fetchHevyWorkoutsPage,
-  HEVY_MAX_PAGE_SIZE,
-  mapHevyWorkoutToRow,
-} from "@/lib/hevy-api"
+import { mapHevyWorkoutToRow } from "@/lib/hevy-api"
+import { fetchAllHevyRows } from "@/lib/hevy-sync"
 import { getHevyApiKey, getZeppAppToken, getZeppUserId } from "@/lib/sync-env"
 import {
   fetchZeppBandSummary,
@@ -386,91 +383,11 @@ async function upsertHevyWorkouts(
   await upsertHevyWorkoutsWithSession(rows, userId, sessionSupabase)
 }
 
-async function fetchAllHevyRows(apiKey: string, maxPages: number) {
-  const allRows: ReturnType<typeof mapHevyWorkoutToRow>[] = []
-
-  for (let page = 1; page <= maxPages; page++) {
-    const { workouts, pageCount } = await fetchHevyWorkoutsPage(
-      apiKey,
-      page,
-      HEVY_MAX_PAGE_SIZE
-    )
-
-    for (const workout of workouts) {
-      allRows.push(mapHevyWorkoutToRow(workout))
-    }
-
-    if (page >= pageCount) break
-  }
-
-  return allRows
-}
-
 function revalidateHevyPaths() {
   revalidatePath("/", "layout")
   revalidatePath("/treinos")
   revalidatePath("/historico")
   revalidatePath("/")
-}
-
-/**
- * Sincroniza treinos Hevy sem uma sessão de utilizador — usado pelo cron
- * (`app/api/cron/hevy`). Requer service role e o user_id do dono dos dados,
- * seguindo o padrão de `syncZeppWorkouts({ userId })`.
- */
-export async function syncHevyDataForUser(
-  userId: string,
-  maxPages = 20
-): Promise<SyncActionResult> {
-  if (!userId) {
-    return { success: false, error: "userId obrigatório para sync sem sessão." }
-  }
-
-  const apiKey = getHevyApiKey()
-  if (!apiKey) {
-    return { success: false, error: "HEVY_API_KEY não configurado." }
-  }
-
-  const serviceSupabase = createServiceSupabase()
-  if (!serviceSupabase) {
-    return {
-      success: false,
-      error:
-        "SUPABASE_SERVICE_ROLE_KEY não configurado (necessário para o sync automático sem sessão).",
-    }
-  }
-
-  try {
-    const allRows = await fetchAllHevyRows(apiKey, maxPages)
-
-    if (!allRows.length) {
-      return {
-        success: false,
-        error: "Nenhum treino encontrado na API do Hevy.",
-      }
-    }
-
-    const { error } = await serviceSupabase.from("hevy_treinos").upsert(
-      allRows.map((row) => ({ ...row, user_id: userId })),
-      { onConflict: "id" }
-    )
-    if (error) throw error
-
-    revalidateHevyPaths()
-
-    return {
-      success: true,
-      message: `${allRows.length} treino(s) Hevy sincronizado(s).`,
-    }
-  } catch (error) {
-    console.error("[syncHevyDataForUser]", error)
-    const detail =
-      error instanceof Error && error.message ? error.message : "Erro desconhecido."
-    return {
-      success: false,
-      error: `Não foi possível sincronizar treinos do Hevy. ${detail}`,
-    }
-  }
 }
 
 export async function syncHevyData(

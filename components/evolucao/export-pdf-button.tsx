@@ -15,7 +15,7 @@ import {
   DEFAULT_REPORT_PERIOD,
   REPORT_PERIOD_OPTIONS,
   type ReportPeriodDays,
-} from "@/lib/report"
+} from "@/lib/report-config"
 import { cn } from "@/lib/utils"
 
 export function ExportPdfButton({ className }: { className?: string }) {
