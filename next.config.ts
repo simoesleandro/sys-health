@@ -9,7 +9,8 @@ const withPWA = withPWAInit({
 })
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // @react-pdf/renderer não deve ser empacotado pelo webpack (render server-side).
+  serverExternalPackages: ["@react-pdf/renderer"],
 }
 
 export default withPWA(nextConfig)
