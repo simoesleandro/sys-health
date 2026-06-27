@@ -1,8 +1,11 @@
 import { ChatInterface } from "@/components/ia-coach/chat-interface"
 import { PageHeader } from "@/components/layout/page-header"
 import { PageShell } from "@/components/layout/page-shell"
+import { getCoachChatInitialMessages } from "@/lib/data"
 
-export default function IaCoachPage() {
+export default async function IaCoachPage() {
+  const initialMessages = await getCoachChatInitialMessages()
+
   return (
     <PageShell className="h-[calc(100dvh-5rem)] max-w-3xl md:h-[calc(100dvh-3rem)]">
       <PageHeader
@@ -11,7 +14,7 @@ export default function IaCoachPage() {
         kicker="SYS.HEALTH"
       />
 
-      <ChatInterface />
+      <ChatInterface initialMessages={initialMessages} />
     </PageShell>
   )
 }

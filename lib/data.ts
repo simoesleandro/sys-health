@@ -9,6 +9,7 @@ import {
   type MeasurementRecord,
 } from "@/lib/biometry"
 import type { MealAnalysisItem } from "@/lib/meal-analysis"
+import type { CoachInitialMessage } from "@/lib/coach-chat-utils"
 import {
   brtDateFromIso,
   formatIaCreatedLabel,
@@ -1369,6 +1370,64 @@ export const getTodayEvacuations = cache(
 )
 
 const IA_ANALYSES_HISTORY_LIMIT = 100
+
+/** Quantos pares pergunta/resposta recarregar no chat do IA Coach. */
+const COACH_CHAT_HISTORY_PAIRS = 10
+
+/**
+ * Carrega os últimos pares pergunta/resposta do IA Coach em ordem
+ * cronológica, prontos para servir de `initialMessages` ao useChat.
+ */
+export const getCoachChatInitialMessages = cache(
+  async (
+    limit = COACH_CHAT_HISTORY_PAIRS
+  ): Promise<CoachInitialMessage[]> => {
+    const supabase = await createServerSupabase()
+    if (!supabase) return []
+
+    const safeLimit = Math.min(Math.max(1, limit), COACH_CHAT_HISTORY_PAIRS)
+
+    try {
+      const { data, error } = await supabase
+        .from("ia_analises_coach")
+        .select("id, pergunta, resposta, criado_em")
+        .order("criado_em", { ascending: false })
+        .limit(safeLimit)
+
+      if (error) {
+        console.warn("[getCoachChatInitialMessages]", error.message)
+        return []
+      }
+
+      // Vem do mais recente para o mais antigo — invertemos para exibir
+      // a conversa em ordem cronológica no chat.
+      const rows = (data ?? []).slice().reverse()
+      const messages: CoachInitialMessage[] = []
+
+      for (const row of rows) {
+        const pergunta = String(row.pergunta ?? "").trim()
+        const resposta = String(row.resposta ?? "").trim()
+        if (!pergunta || !resposta) continue
+
+        messages.push({
+          id: `history-coach-${row.id}-user`,
+          role: "user",
+          parts: [{ type: "text", text: pergunta }],
+        })
+        messages.push({
+          id: `history-coach-${row.id}-assistant`,
+          role: "assistant",
+          parts: [{ type: "text", text: resposta }],
+        })
+      }
+
+      return messages
+    } catch (error) {
+      console.error("[getCoachChatInitialMessages]", error)
+      return []
+    }
+  }
+)
 
 function parseMealAnalysisItems(raw: unknown): MealAnalysisItem[] {
   if (!Array.isArray(raw)) return []

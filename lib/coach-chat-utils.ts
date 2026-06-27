@@ -4,6 +4,13 @@ export type CoachMessagePart = {
   state?: "streaming" | "done"
 }
 
+/** Mensagem serializável usada para pré-carregar o histórico no useChat. */
+export type CoachInitialMessage = {
+  id: string
+  role: "user" | "assistant"
+  parts: { type: "text"; text: string }[]
+}
+
 export function getMessageText(parts: CoachMessagePart[]) {
   return parts
     .filter((part) => part.type === "text" && part.text)

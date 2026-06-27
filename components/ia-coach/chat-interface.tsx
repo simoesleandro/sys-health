@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
+import { DefaultChatTransport, type UIMessage } from "ai"
 import { Loader2, Send } from "lucide-react"
 
 import { CoachMessage } from "@/components/ia-coach/coach-message"
@@ -12,18 +12,33 @@ import { logCoachAnalysis } from "@/lib/actions/coach-analysis"
 import {
   getMessageText,
   hasAssistantStreamContent,
+  type CoachInitialMessage,
   type CoachMessagePart,
 } from "@/lib/coach-chat-utils"
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
 import { cn } from "@/lib/utils"
 
-export function ChatInterface({ className }: { className?: string }) {
+export function ChatInterface({
+  className,
+  initialMessages = [],
+}: {
+  className?: string
+  initialMessages?: CoachInitialMessage[]
+}) {
   const [input, setInput] = React.useState("")
   const scrollRef = React.useRef<HTMLDivElement>(null)
-  const loggedAssistantIds = React.useRef(new Set<string>())
+  // Pares já persistidos (histórico recarregado) não devem ser re-gravados.
+  const loggedAssistantIds = React.useRef(
+    new Set<string>(
+      initialMessages
+        .filter((message) => message.role === "assistant")
+        .map((message) => message.id)
+    )
+  )
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
+    messages: initialMessages as unknown as UIMessage[],
   })
 
   const isBusy = status === "submitted" || status === "streaming"
