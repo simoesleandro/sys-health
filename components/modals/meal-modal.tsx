@@ -85,6 +85,10 @@ function resetModalState(
     setSaveAiItemsToBank: (v: boolean) => void
     setRecentMeals: (v: RecentMealTemplate[]) => void
     setComboHint: (v: string | null) => void
+    setComboDialogOpen: (v: boolean) => void
+    setComboName: (v: string) => void
+    setComboError: (v: string | null) => void
+    setShortcutTab: (v: ShortcutTab) => void
   }
 ) {
   setters.setQuery("")
@@ -102,11 +106,17 @@ function resetModalState(
   setters.setSaveAiItemsToBank(true)
   setters.setRecentMeals([])
   setters.setComboHint(null)
+  setters.setComboDialogOpen(false)
+  setters.setComboName("")
+  setters.setComboError(null)
+  setters.setShortcutTab("recent")
 }
 
 type PendingMealAnalysis = MealAiAnalysisMeta & {
   itens: MealAnalysisItem[]
 }
+
+type ShortcutTab = "recent" | "favorite" | "combo"
 
 function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
@@ -170,6 +180,11 @@ export function MealModal() {
     React.useState<FoodFormInput>(EMPTY_INLINE_FORM)
   const [inlineHint, setInlineHint] = React.useState<string | null>(null)
   const [comboHint, setComboHint] = React.useState<string | null>(null)
+  const [comboError, setComboError] = React.useState<string | null>(null)
+  const [comboDialogOpen, setComboDialogOpen] = React.useState(false)
+  const [comboName, setComboName] = React.useState("")
+  const [shortcutTab, setShortcutTab] =
+    React.useState<ShortcutTab>("recent")
   const [saveAiItemsToBank, setSaveAiItemsToBank] = React.useState(true)
   const [isCreatingFood, startCreateFoodTransition] = React.useTransition()
   const [isSavingCombo, startSaveComboTransition] = React.useTransition()
@@ -194,6 +209,28 @@ export function MealModal() {
     () => cart.some(isUnsavedAiCartItem),
     [cart]
   )
+  const comboFoods = React.useMemo(
+    () => quickFoods.filter((food) => food.categoria === "Combo"),
+    [quickFoods]
+  )
+  const favoriteFoods = React.useMemo(
+    () => quickFoods.filter((food) => food.categoria !== "Combo"),
+    [quickFoods]
+  )
+  const hasShortcuts =
+    recentMeals.length > 0 || favoriteFoods.length > 0 || comboFoods.length > 0
+  const fallbackShortcutTab: ShortcutTab =
+    recentMeals.length > 0
+      ? "recent"
+      : favoriteFoods.length > 0
+        ? "favorite"
+        : "combo"
+  const activeShortcutTab =
+    (shortcutTab === "recent" && recentMeals.length > 0) ||
+    (shortcutTab === "favorite" && favoriteFoods.length > 0) ||
+    (shortcutTab === "combo" && comboFoods.length > 0)
+      ? shortcutTab
+      : fallbackShortcutTab
 
   React.useEffect(() => {
     if (!open) return
@@ -242,6 +279,10 @@ export function MealModal() {
         setSaveAiItemsToBank,
         setRecentMeals,
         setComboHint,
+        setComboDialogOpen,
+        setComboName,
+        setComboError,
+        setShortcutTab,
       })
     } else {
       setCategory(suggestMealCategoryByHour())
@@ -329,19 +370,31 @@ export function MealModal() {
     setComboHint(null)
   }
 
-  function handleSaveCombo() {
-    if (cart.length === 0) return
-
-    const defaultName = cart
+  function getDefaultComboName() {
+    return cart
       .slice(0, 3)
       .map((item) => item.nome)
       .join(" + ")
-    const name = window.prompt("Nome do combo", defaultName)
-    const descricao = name?.trim()
-    if (!descricao) return
+  }
+
+  function openComboDialog() {
+    if (cart.length === 0) return
+
+    setComboName(getDefaultComboName())
+    setComboError(null)
+    setComboDialogOpen(true)
+  }
+
+  function handleSaveCombo() {
+    const descricao = comboName.trim()
+    if (!descricao) {
+      setComboError("Informe um nome para o combo.")
+      return
+    }
 
     setError(null)
     setComboHint(null)
+    setComboError(null)
     startSaveComboTransition(async () => {
       const result = await createFood({
         descricao,
@@ -361,6 +414,9 @@ export function MealModal() {
 
       setQuickFoods((prev) => [result.food, ...prev.filter((food) => food.id !== result.food.id)].slice(0, 8))
       setComboHint("Combo salvo no banco de alimentos.")
+      setComboDialogOpen(false)
+      setComboName("")
+      setShortcutTab("combo")
     })
   }
 
@@ -557,60 +613,107 @@ export function MealModal() {
               autoComplete="off"
             />
 
-            {!trimmedQuery && recentMeals.length > 0 && !pendingFood && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-muted-foreground">Recentes</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {recentMeals.map((meal) => (
-                    <button
-                      key={meal.id}
-                      type="button"
-                      onClick={() => handleAddRecentMeal(meal)}
-                      className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
-                    >
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate font-medium">
-                          {meal.categoria}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {meal.hora}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        {meal.descricao}
-                      </span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {Math.round(meal.calorias)} kcal · P{" "}
-                        {Math.round(meal.proteinas)}g
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {!trimmedQuery && hasShortcuts && !pendingFood && (
+              <Tabs
+                value={activeShortcutTab}
+                onValueChange={(value) => setShortcutTab(value as ShortcutTab)}
+                className="gap-2"
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger
+                    value="recent"
+                    className="flex-1"
+                    disabled={recentMeals.length === 0}
+                  >
+                    Recentes
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="favorite"
+                    className="flex-1"
+                    disabled={favoriteFoods.length === 0}
+                  >
+                    Favoritos
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="combo"
+                    className="flex-1"
+                    disabled={comboFoods.length === 0}
+                  >
+                    Combos
+                  </TabsTrigger>
+                </TabsList>
 
-            {!trimmedQuery && quickFoods.length > 0 && !pendingFood && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-muted-foreground">Mais usados</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {quickFoods.map((food) => (
-                    <button
-                      key={food.id}
-                      type="button"
-                      onClick={() => handleSelectFood(food)}
-                      className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
-                    >
-                      <span className="block truncate font-medium">
-                        {food.descricao}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {Math.round(food.calorias)} kcal / {food.qtdReferencia}
-                        {food.unidadeReferencia}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <TabsContent value="recent" className="mt-0">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {recentMeals.map((meal) => (
+                      <button
+                        key={meal.id}
+                        type="button"
+                        onClick={() => handleAddRecentMeal(meal)}
+                        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate font-medium">
+                            {meal.categoria}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {meal.hora}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {meal.descricao}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {Math.round(meal.calorias)} kcal · P{" "}
+                          {Math.round(meal.proteinas)}g
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="favorite" className="mt-0">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {favoriteFoods.map((food) => (
+                      <button
+                        key={food.id}
+                        type="button"
+                        onClick={() => handleSelectFood(food)}
+                        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <span className="block truncate font-medium">
+                          {food.descricao}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {Math.round(food.calorias)} kcal / {food.qtdReferencia}
+                          {food.unidadeReferencia}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="combo" className="mt-0">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {comboFoods.map((food) => (
+                      <button
+                        key={food.id}
+                        type="button"
+                        onClick={() => handleSelectFood(food)}
+                        className="rounded-lg border border-cyan/30 bg-cyan/5 px-3 py-2 text-left text-sm transition-colors hover:bg-cyan/10"
+                      >
+                        <span className="block truncate font-medium">
+                          {food.descricao}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {Math.round(food.calorias)} kcal · P{" "}
+                          {Math.round(food.proteinas)}g
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
             )}
 
             {isSearching && (
@@ -921,7 +1024,7 @@ export function MealModal() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={handleSaveCombo}
+                  onClick={openComboDialog}
                   disabled={isSavingCombo}
                 >
                   {isSavingCombo ? (
@@ -1012,6 +1115,80 @@ export function MealModal() {
               </ul>
             )}
           </section>
+
+          <Dialog
+            open={comboDialogOpen}
+            onOpenChange={(nextOpen) => {
+              setComboDialogOpen(nextOpen)
+              if (!nextOpen) setComboError(null)
+            }}
+          >
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Salvar Combo</DialogTitle>
+                <DialogDescription>
+                  Guarde este carrinho como atalho no banco de alimentos.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form
+                className="flex flex-col gap-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  handleSaveCombo()
+                }}
+              >
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="combo-name">Nome do combo</Label>
+                  <Input
+                    id="combo-name"
+                    name="combo-name"
+                    value={comboName}
+                    onChange={(event) => {
+                      setComboName(event.target.value)
+                      setComboError(null)
+                    }}
+                    placeholder="Ex.: Café padrão…"
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+                  {Math.round(totals.calorias)} kcal · P{" "}
+                  {Math.round(totals.proteinas)}g · C{" "}
+                  {Math.round(totals.carboidratos)}g · G{" "}
+                  {Math.round(totals.gorduras)}g
+                </div>
+
+                {comboError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {comboError}
+                  </p>
+                ) : null}
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setComboDialogOpen(false)}
+                    disabled={isSavingCombo}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isSavingCombo}>
+                    {isSavingCombo ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Salvando…
+                      </>
+                    ) : (
+                      "Salvar Combo"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           {error && (
             <p className="text-sm text-destructive" role="alert">
