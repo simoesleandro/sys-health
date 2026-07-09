@@ -7,6 +7,7 @@ import {
   type FoodFormInput,
 } from "@/lib/foods"
 import type { FoodSearchResult } from "@/lib/meals"
+import { requireAuth } from "@/lib/supabase/auth"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 function validateFoodInput(data: FoodFormInput) {
@@ -125,16 +126,20 @@ export async function createFood(data: FoodFormInput) {
     return { success: false as const, error: validation.error }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await auth.supabase
       .from("alimentos_favoritos")
       .insert({
         ...validation.value,
+        user_id: auth.user.id,
         vezes_usado: 0,
       })
       .select(
@@ -153,7 +158,10 @@ export async function createFood(data: FoodFormInput) {
     console.error("[createFood]", error)
     return {
       success: false as const,
-      error: "Não foi possível criar o alimento.",
+      error:
+        error instanceof Error
+          ? `Não foi possível criar o alimento: ${error.message}`
+          : "Não foi possível criar o alimento.",
     }
   }
 }

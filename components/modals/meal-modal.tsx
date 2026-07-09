@@ -690,13 +690,23 @@ export function MealModal() {
                   </div>
                   <div>
                     <Label htmlFor="inline-unidade">Unidade</Label>
-                    <Input
-                      id="inline-unidade"
+                    <Select
                       value={inlineForm.unidadeReferencia}
-                      onChange={(event) =>
-                        updateInlineField("unidadeReferencia", event.target.value)
+                      onValueChange={(value) =>
+                        updateInlineField("unidadeReferencia", value)
                       }
-                    />
+                    >
+                      <SelectTrigger id="inline-unidade" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FOOD_REFERENCE_UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="inline-kcal">Calorias</Label>
