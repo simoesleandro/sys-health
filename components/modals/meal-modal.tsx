@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -28,16 +29,25 @@ import {
 } from "@/components/modals/meal-modal-ai-panel"
 import { useMealModal, useQuickModals } from "@/components/modals/quick-modals-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createFood, searchFoods } from "@/lib/actions/foods"
+import { createFood, getFrequentFoods, searchFoods } from "@/lib/actions/foods"
 import { logMealAnalysis } from "@/lib/actions/meal-analysis"
-import { createMeal } from "@/lib/actions/meals"
+import {
+  createMeal,
+  getRecentMealTemplates,
+  type RecentMealTemplate,
+} from "@/lib/actions/meals"
 import type { MealAnalysisItem } from "@/lib/meal-analysis"
-import type { FoodFormInput } from "@/lib/foods"
+import {
+  FOOD_REFERENCE_UNITS,
+  type FoodFormInput,
+  type FoodReferenceUnit,
+} from "@/lib/foods"
 import {
   type CartItem,
   type FoodSearchResult,
   MEAL_CATEGORIES,
   aiItemToCartItem,
+  calcItemMacros,
   cartToComponentes,
   foodToCartItem,
   suggestMealCategoryByHour,
@@ -71,6 +81,10 @@ function resetModalState(
     setInlineForm: (v: FoodFormInput) => void
     setActiveTab: (v: "manual" | "text" | "photo") => void
     setPendingAnalysis: (v: PendingMealAnalysis | null) => void
+    setInlineHint: (v: string | null) => void
+    setSaveAiItemsToBank: (v: boolean) => void
+    setRecentMeals: (v: RecentMealTemplate[]) => void
+    setComboHint: (v: string | null) => void
   }
 ) {
   setters.setQuery("")
@@ -84,6 +98,10 @@ function resetModalState(
   setters.setInlineForm(EMPTY_INLINE_FORM)
   setters.setActiveTab("manual")
   setters.setPendingAnalysis(null)
+  setters.setInlineHint(null)
+  setters.setSaveAiItemsToBank(true)
+  setters.setRecentMeals([])
+  setters.setComboHint(null)
 }
 
 type PendingMealAnalysis = MealAiAnalysisMeta & {
@@ -94,12 +112,49 @@ function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
 }
 
+function isUnsavedAiCartItem(item: CartItem) {
+  return item.uid.startsWith("ia-") && item.bancoId <= 0
+}
+
+function normalizeFoodUnit(value: string): FoodReferenceUnit {
+  const unit = value.trim().toLowerCase()
+  if (FOOD_REFERENCE_UNITS.includes(unit as FoodReferenceUnit)) {
+    return unit as FoodReferenceUnit
+  }
+  if (unit === "un" || unit === "unidade" || unit === "unidades") return "und"
+  return "g"
+}
+
+function cartItemToFoodInput(item: CartItem, categoria: string): FoodFormInput {
+  const macros = calcItemMacros(item)
+
+  return {
+    descricao: item.nome,
+    categoria,
+    calorias: macros.kcal,
+    proteinas: macros.prot,
+    carboidratos: macros.carb,
+    gorduras: macros.gord,
+    qtdReferencia: item.qtd,
+    unidadeReferencia: normalizeFoodUnit(item.unidade),
+  }
+}
+
+function cloneCartItem(item: CartItem): CartItem {
+  return {
+    ...item,
+    uid: `recent-${item.bancoId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  }
+}
+
 export function MealModal() {
   const router = useRouter()
   const { open, setOpen } = useMealModal()
   const { supplementPresets } = useQuickModals()
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
+  const [quickFoods, setQuickFoods] = React.useState<FoodSearchResult[]>([])
+  const [recentMeals, setRecentMeals] = React.useState<RecentMealTemplate[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
   const [cart, setCart] = React.useState<CartItem[]>([])
   const [pendingFood, setPendingFood] = React.useState<FoodSearchResult | null>(
@@ -113,7 +168,13 @@ export function MealModal() {
   const [showInlineCreate, setShowInlineCreate] = React.useState(false)
   const [inlineForm, setInlineForm] =
     React.useState<FoodFormInput>(EMPTY_INLINE_FORM)
+  const [inlineHint, setInlineHint] = React.useState<string | null>(null)
+  const [comboHint, setComboHint] = React.useState<string | null>(null)
+  const [saveAiItemsToBank, setSaveAiItemsToBank] = React.useState(true)
   const [isCreatingFood, startCreateFoodTransition] = React.useTransition()
+  const [isSavingCombo, startSaveComboTransition] = React.useTransition()
+  const [isAnalyzingInlineFood, startAnalyzeInlineFoodTransition] =
+    React.useTransition()
   const [isSaving, startSaveTransition] = React.useTransition()
   const [activeTab, setActiveTab] = React.useState<"manual" | "text" | "photo">(
     "manual"
@@ -129,6 +190,17 @@ export function MealModal() {
     !pendingFood
 
   const totals = React.useMemo(() => sumCartMacros(cart), [cart])
+  const hasUnsavedAiItems = React.useMemo(
+    () => cart.some(isUnsavedAiCartItem),
+    [cart]
+  )
+
+  React.useEffect(() => {
+    if (!open) return
+
+    void getFrequentFoods(8).then(setQuickFoods)
+    void getRecentMealTemplates(5).then(setRecentMeals)
+  }, [open])
 
   React.useEffect(() => {
     if (!open) return
@@ -166,6 +238,10 @@ export function MealModal() {
         setInlineForm,
         setActiveTab,
         setPendingAnalysis,
+        setInlineHint,
+        setSaveAiItemsToBank,
+        setRecentMeals,
+        setComboHint,
       })
     } else {
       setCategory(suggestMealCategoryByHour())
@@ -193,6 +269,14 @@ export function MealModal() {
     setQuery("")
     setResults([])
     setError(null)
+    setComboHint(null)
+  }
+
+  function handleAddRecentMeal(meal: RecentMealTemplate) {
+    setCart((prev) => [...prev, ...meal.cart.map(cloneCartItem)])
+    setCategory(meal.categoria)
+    setError(null)
+    setComboHint(null)
   }
 
   function handleRemoveFromCart(uid: string) {
@@ -208,6 +292,7 @@ export function MealModal() {
       return [...prev, supplementToCartItem(preset)]
     })
     setError(null)
+    setComboHint(null)
   }
 
   function openInlineCreate() {
@@ -217,6 +302,8 @@ export function MealModal() {
       descricao: trimmedQuery,
     })
     setError(null)
+    setInlineHint(null)
+    setComboHint(null)
   }
 
   function updateInlineField<K extends keyof FoodFormInput>(
@@ -225,6 +312,7 @@ export function MealModal() {
   ) {
     setInlineForm((current) => ({ ...current, [key]: value }))
     setError(null)
+    setInlineHint(null)
   }
 
   function handleAddAiItems(payload: {
@@ -238,6 +326,42 @@ export function MealModal() {
     })
     setActiveTab("manual")
     setError(null)
+    setComboHint(null)
+  }
+
+  function handleSaveCombo() {
+    if (cart.length === 0) return
+
+    const defaultName = cart
+      .slice(0, 3)
+      .map((item) => item.nome)
+      .join(" + ")
+    const name = window.prompt("Nome do combo", defaultName)
+    const descricao = name?.trim()
+    if (!descricao) return
+
+    setError(null)
+    setComboHint(null)
+    startSaveComboTransition(async () => {
+      const result = await createFood({
+        descricao,
+        categoria: "Combo",
+        calorias: Math.round(totals.calorias),
+        proteinas: Math.round(totals.proteinas * 10) / 10,
+        carboidratos: Math.round(totals.carboidratos * 10) / 10,
+        gorduras: Math.round(totals.gorduras * 10) / 10,
+        qtdReferencia: 1,
+        unidadeReferencia: "und",
+      })
+
+      if (!result.success) {
+        setError(result.error)
+        return
+      }
+
+      setQuickFoods((prev) => [result.food, ...prev.filter((food) => food.id !== result.food.id)].slice(0, 8))
+      setComboHint("Combo salvo no banco de alimentos.")
+    })
   }
 
   function handleCreateInlineFood() {
@@ -258,6 +382,44 @@ export function MealModal() {
     })
   }
 
+  function handleAnalyzeInlineFood() {
+    const descricao = inlineForm.descricao.trim()
+    if (descricao.length < 2) {
+      setError("Informe o nome do alimento antes de estimar.")
+      return
+    }
+
+    setError(null)
+    setInlineHint(null)
+    startAnalyzeInlineFoodTransition(async () => {
+      try {
+        const response = await fetch("/api/foods/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            descricao,
+            qtdReferencia: inlineForm.qtdReferencia,
+            unidadeReferencia: inlineForm.unidadeReferencia,
+          }),
+        })
+        const data = (await response.json()) as {
+          error?: string
+          food?: FoodFormInput
+        }
+
+        if (!response.ok || !data.food) {
+          setError(data.error ?? "Não foi possível estimar este alimento.")
+          return
+        }
+
+        setInlineForm(data.food)
+        setInlineHint("Estimativa aplicada. Revise antes de criar.")
+      } catch {
+        setError("Falha de rede ao contactar a IA.")
+      }
+    })
+  }
+
   function handleUpdateCartQtd(uid: string, value: string) {
     const qtd = Number(value.replace(",", "."))
     setCart((prev) =>
@@ -275,10 +437,34 @@ export function MealModal() {
       return
     }
 
-    const componentes = cartToComponentes(cart)
-    const descricao = componentes.map((item) => item.nome).join(" + ")
-
     startSaveTransition(async () => {
+      let cartForSave = cart
+
+      if (saveAiItemsToBank && hasUnsavedAiItems) {
+        const materialized: CartItem[] = []
+
+        for (const item of cartForSave) {
+          if (!isUnsavedAiCartItem(item)) {
+            materialized.push(item)
+            continue
+          }
+
+          const result = await createFood(cartItemToFoodInput(item, category))
+          if (!result.success) {
+            setError(result.error)
+            return
+          }
+
+          materialized.push(foodToCartItem(result.food, item.qtd))
+        }
+
+        cartForSave = materialized
+        setCart(materialized)
+      }
+
+      const componentes = cartToComponentes(cartForSave)
+      const descricao = componentes.map((item) => item.nome).join(" + ")
+
       const result = await createMeal({
         categoria: category,
         descricao,
@@ -370,6 +556,62 @@ export function MealModal() {
               onChange={(event) => setQuery(event.target.value)}
               autoComplete="off"
             />
+
+            {!trimmedQuery && recentMeals.length > 0 && !pendingFood && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground">Recentes</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {recentMeals.map((meal) => (
+                    <button
+                      key={meal.id}
+                      type="button"
+                      onClick={() => handleAddRecentMeal(meal)}
+                      className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate font-medium">
+                          {meal.categoria}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {meal.hora}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {meal.descricao}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {Math.round(meal.calorias)} kcal · P{" "}
+                        {Math.round(meal.proteinas)}g
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!trimmedQuery && quickFoods.length > 0 && !pendingFood && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground">Mais usados</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {quickFoods.map((food) => (
+                    <button
+                      key={food.id}
+                      type="button"
+                      onClick={() => handleSelectFood(food)}
+                      className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                    >
+                      <span className="block truncate font-medium">
+                        {food.descricao}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {Math.round(food.calorias)} kcal / {food.qtdReferencia}
+                        {food.unidadeReferencia}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {isSearching && (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -525,8 +767,31 @@ export function MealModal() {
                   <Button
                     type="button"
                     size="sm"
+                    variant="outline"
+                    onClick={handleAnalyzeInlineFood}
+                    disabled={
+                      isAnalyzingInlineFood ||
+                      isCreatingFood ||
+                      inlineForm.descricao.trim().length < 2
+                    }
+                  >
+                    {isAnalyzingInlineFood ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Estimando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-4" />
+                        Preencher com IA
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
                     onClick={handleCreateInlineFood}
-                    disabled={isCreatingFood}
+                    disabled={isCreatingFood || isAnalyzingInlineFood}
                   >
                     {isCreatingFood ? (
                       <>
@@ -546,6 +811,11 @@ export function MealModal() {
                     Cancelar
                   </Button>
                 </div>
+                {inlineHint ? (
+                  <p className="mt-2 text-xs text-brand-cyan" role="status">
+                    {inlineHint}
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -634,7 +904,55 @@ export function MealModal() {
           )}
 
           <section className="flex min-h-0 flex-1 flex-col gap-2">
-            <h3 className="text-sm font-medium">Carrinho</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium">Carrinho</h3>
+              {cart.length > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveCombo}
+                  disabled={isSavingCombo}
+                >
+                  {isSavingCombo ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="size-4" />
+                      Salvar combo
+                    </>
+                  )}
+                </Button>
+              ) : null}
+            </div>
+
+            {hasUnsavedAiItems ? (
+              <label className="flex items-start gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-3 py-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={saveAiItemsToBank}
+                  onCheckedChange={(checked) =>
+                    setSaveAiItemsToBank(checked === true)
+                  }
+                />
+                <span>
+                  <span className="block font-medium">
+                    Salvar itens da IA no banco
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Eles ficam disponíveis nos favoritos depois desta refeição.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+            {comboHint ? (
+              <p className="rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-2 text-xs text-brand-cyan">
+                {comboHint}
+              </p>
+            ) : null}
 
             {cart.length === 0 ? (
               <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">

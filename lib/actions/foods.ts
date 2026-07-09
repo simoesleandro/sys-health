@@ -55,6 +55,20 @@ function revalidateFoodPaths() {
   revalidatePath("/", "layout")
 }
 
+function mapFoodSearchRow(row: Record<string, unknown>): FoodSearchResult {
+  return {
+    id: Number(row.id),
+    descricao: String(row.descricao ?? ""),
+    categoria: String(row.categoria ?? "Lanche"),
+    calorias: Number(row.calorias ?? 0),
+    proteinas: Number(row.proteinas ?? 0),
+    carboidratos: Number(row.carboidratos ?? 0),
+    gorduras: Number(row.gorduras ?? 0),
+    qtdReferencia: Number(row.qtd_referencia ?? 100),
+    unidadeReferencia: String(row.unidade_referencia ?? "g"),
+  }
+}
+
 export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
   const term = query.trim()
   if (term.length < 2) return []
@@ -74,19 +88,33 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
 
     if (error) throw error
 
-    return (data ?? []).map((row) => ({
-      id: Number(row.id),
-      descricao: String(row.descricao ?? ""),
-      categoria: String(row.categoria ?? "Lanche"),
-      calorias: Number(row.calorias ?? 0),
-      proteinas: Number(row.proteinas ?? 0),
-      carboidratos: Number(row.carboidratos ?? 0),
-      gorduras: Number(row.gorduras ?? 0),
-      qtdReferencia: Number(row.qtd_referencia ?? 100),
-      unidadeReferencia: String(row.unidade_referencia ?? "g"),
-    }))
+    return (data ?? []).map((row) => mapFoodSearchRow(row))
   } catch (error) {
     console.error("[searchFoods]", error)
+    return []
+  }
+}
+
+export async function getFrequentFoods(limit = 8): Promise<FoodSearchResult[]> {
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 12)
+  const supabase = await createServerSupabase()
+  if (!supabase) return []
+
+  try {
+    const { data, error } = await supabase
+      .from("alimentos_favoritos")
+      .select(
+        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+      )
+      .order("vezes_usado", { ascending: false })
+      .order("descricao", { ascending: true })
+      .limit(safeLimit)
+
+    if (error) throw error
+
+    return (data ?? []).map((row) => mapFoodSearchRow(row))
+  } catch (error) {
+    console.error("[getFrequentFoods]", error)
     return []
   }
 }
@@ -119,17 +147,7 @@ export async function createFood(data: FoodFormInput) {
     revalidateFoodPaths()
     return {
       success: true as const,
-      food: {
-        id: Number(data.id),
-        descricao: String(data.descricao ?? ""),
-        categoria: String(data.categoria ?? "Lanche"),
-        calorias: Number(data.calorias ?? 0),
-        proteinas: Number(data.proteinas ?? 0),
-        carboidratos: Number(data.carboidratos ?? 0),
-        gorduras: Number(data.gorduras ?? 0),
-        qtdReferencia: Number(data.qtd_referencia ?? 100),
-        unidadeReferencia: String(data.unidade_referencia ?? "g"),
-      } satisfies FoodSearchResult,
+      food: mapFoodSearchRow(data as Record<string, unknown>),
     }
   } catch (error) {
     console.error("[createFood]", error)
@@ -196,4 +214,41 @@ export async function deleteFood(id: number) {
 
   revalidateFoodPaths()
   return { success: true as const }
+}
+
+export async function incrementFoodsUsage(foodIds: number[]) {
+  const ids = [...new Set(foodIds)]
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+
+  if (ids.length === 0) return { success: true as const }
+
+  const supabase = await createServerSupabase()
+  if (!supabase) {
+    return { success: false as const, error: "Supabase não configurado." }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("alimentos_favoritos")
+      .select("id, vezes_usado")
+      .in("id", ids)
+
+    if (error) throw error
+
+    await Promise.all(
+      (data ?? []).map((row) =>
+        supabase
+          .from("alimentos_favoritos")
+          .update({ vezes_usado: Number(row.vezes_usado ?? 0) + 1 })
+          .eq("id", Number(row.id))
+      )
+    )
+
+    revalidateFoodPaths()
+    return { success: true as const }
+  } catch (error) {
+    console.error("[incrementFoodsUsage]", error)
+    return { success: false as const, error: "Não foi possível atualizar uso." }
+  }
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -71,6 +71,8 @@ export function FoodFormModal({
   const isEditing = food != null
   const [form, setForm] = React.useState<FoodFormInput>(EMPTY_FORM)
   const [error, setError] = React.useState<string | null>(null)
+  const [hint, setHint] = React.useState<string | null>(null)
+  const [isAnalyzing, startAnalyzeTransition] = React.useTransition()
   const [isSaving, startSaveTransition] = React.useTransition()
 
   React.useEffect(() => {
@@ -78,6 +80,7 @@ export function FoodFormModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(food ? foodToForm(food) : EMPTY_FORM)
     setError(null)
+    setHint(null)
   }, [open, food])
 
   function updateField<K extends keyof FoodFormInput>(
@@ -86,6 +89,45 @@ export function FoodFormModal({
   ) {
     setForm((current) => ({ ...current, [key]: value }))
     setError(null)
+    setHint(null)
+  }
+
+  function handleAnalyzeFood() {
+    const descricao = form.descricao.trim()
+    if (descricao.length < 2) {
+      setError("Informe o nome do alimento antes de estimar.")
+      return
+    }
+
+    setError(null)
+    setHint(null)
+    startAnalyzeTransition(async () => {
+      try {
+        const response = await fetch("/api/foods/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            descricao,
+            qtdReferencia: form.qtdReferencia,
+            unidadeReferencia: form.unidadeReferencia,
+          }),
+        })
+        const data = (await response.json()) as {
+          error?: string
+          food?: FoodFormInput
+        }
+
+        if (!response.ok || !data.food) {
+          setError(data.error ?? "Não foi possível estimar este alimento.")
+          return
+        }
+
+        setForm(data.food)
+        setHint("Estimativa aplicada. Revise os valores antes de salvar.")
+      } catch {
+        setError("Falha de rede ao contactar a IA.")
+      }
+    })
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -128,6 +170,30 @@ export function FoodFormModal({
               placeholder="Ex.: Peito de frango grelhado"
               required
             />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAnalyzeFood}
+                disabled={isAnalyzing || form.descricao.trim().length < 2}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Estimando…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" />
+                    Preencher com IA
+                  </>
+                )}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Usa a porção indicada abaixo.
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -237,17 +303,22 @@ export function FoodFormModal({
               {error}
             </p>
           ) : null}
+          {hint ? (
+            <p className="text-sm text-brand-cyan" role="status">
+              {hint}
+            </p>
+          ) : null}
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isSaving}
+              disabled={isSaving || isAnalyzing}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving || isAnalyzing}>
               {isSaving ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />

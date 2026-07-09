@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache"
 
+import { incrementFoodsUsage } from "@/lib/actions/foods"
 import { formatMealTimeBrt, getBrtTodayUtcBounds } from "@/lib/brt-time"
-import type { CreateMealInput, UpdateMealInput } from "@/lib/meals"
+import type { CartItem, CreateMealInput, UpdateMealInput } from "@/lib/meals"
 import { parseStoredComponentes, storedComponentToCartItem } from "@/lib/meals"
 import { createServerSupabase } from "@/lib/supabase/server"
 
@@ -40,6 +41,7 @@ export async function createMeal(data: CreateMealInput) {
 
     if (error) throw error
 
+    await incrementFoodsUsage(data.componentes.map((item) => item.banco_id))
     revalidateMealPaths()
 
     return { success: true as const, id: Number(row.id) }
@@ -162,6 +164,61 @@ export type MealForEdit = {
   id: number
   categoria: string
   cartJson: string
+}
+
+export type RecentMealTemplate = {
+  id: number
+  categoria: string
+  descricao: string
+  hora: string
+  calorias: number
+  proteinas: number
+  cart: CartItem[]
+}
+
+export async function getRecentMealTemplates(
+  limit = 6
+): Promise<RecentMealTemplate[]> {
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 10)
+  const supabase = await createServerSupabase()
+  if (!supabase) return []
+
+  try {
+    const { data, error } = await supabase
+      .from("refeicoes")
+      .select(
+        "id, data_hora, categoria, descricao, calorias, proteinas, componentes_json"
+      )
+      .order("data_hora", { ascending: false })
+      .limit(safeLimit)
+
+    if (error) throw error
+
+    return (data ?? [])
+      .map((row) => {
+        const componentes = parseStoredComponentes(
+          row.componentes_json as string | null,
+          String(row.descricao ?? "")
+        )
+        const cart = componentes.map((item, index) =>
+          storedComponentToCartItem(item, index)
+        )
+
+        return {
+          id: Number(row.id),
+          categoria: String(row.categoria ?? "Refeição"),
+          descricao: String(row.descricao ?? ""),
+          hora: formatMealTimeBrt(String(row.data_hora ?? "")),
+          calorias: Number(row.calorias ?? 0),
+          proteinas: Number(row.proteinas ?? 0),
+          cart,
+        } satisfies RecentMealTemplate
+      })
+      .filter((meal) => meal.cart.length > 0)
+  } catch (error) {
+    console.error("[getRecentMealTemplates]", error)
+    return []
+  }
 }
 
 export async function getMealForEdit(
