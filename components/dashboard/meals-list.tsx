@@ -1,3 +1,4 @@
+import { EmptyMealsCard } from "@/components/dashboard/empty-meals-card"
 import { MealCardActions } from "@/components/dashboard/meal-card-actions"
 import { MealMacroBadges } from "@/components/dashboard/meal-macro-badges"
 import { NeonCard } from "@/components/ui/neon-card"
@@ -75,15 +76,7 @@ export async function MealsList() {
   const meals = await getTodayMeals()
 
   if (meals.length === 0) {
-    return (
-      <NeonCard accent="cyan" className="px-5 py-6">
-        <p className="neon-section-title">Nenhuma refeição registrada hoje</p>
-        <p className="neon-section-subtitle mt-2">
-          Use a ação rápida &quot;Nova refeição&quot; na sidebar para registrar
-          a primeira refeição do dia.
-        </p>
-      </NeonCard>
-    )
+    return <EmptyMealsCard />
   }
 
   return (
