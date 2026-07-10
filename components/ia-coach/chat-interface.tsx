@@ -41,6 +41,13 @@ const QUICK_PROMPTS = [
   },
 ] as const
 
+type CoachHistoryPair = {
+  id: string
+  question: string
+  answer: string
+  messages: CoachInitialMessage[]
+}
+
 export function ChatInterface({
   className,
   initialMessages = [],
@@ -76,6 +83,33 @@ export function ChatInterface({
   const errorMessage = formatCoachErrorMessage(error)
   const hasSavedHistory = initialMessages.length > 0
   const canRestoreHistory = hasSavedHistory && messages.length === 0
+  const historyPairs = React.useMemo<CoachHistoryPair[]>(() => {
+    const pairs: CoachHistoryPair[] = []
+
+    for (let index = 0; index < initialMessages.length - 1; index += 2) {
+      const userMessage = initialMessages[index]
+      const assistantMessage = initialMessages[index + 1]
+      if (
+        userMessage?.role !== "user" ||
+        assistantMessage?.role !== "assistant"
+      ) {
+        continue
+      }
+
+      const question = getMessageText(userMessage.parts).trim()
+      const answer = getMessageText(assistantMessage.parts).trim()
+      if (!question || !answer) continue
+
+      pairs.push({
+        id: assistantMessage.id,
+        question,
+        answer,
+        messages: [userMessage, assistantMessage],
+      })
+    }
+
+    return pairs.reverse().slice(0, 4)
+  }, [initialMessages])
 
   const lastMessage = messages.at(-1)
   const awaitingFirstToken =
@@ -138,6 +172,14 @@ export function ChatInterface({
     }
   }
 
+  function handleOpenHistoryPair(pair: CoachHistoryPair) {
+    if (isBusy) return
+
+    clearError()
+    setInput("")
+    setMessages(pair.messages as unknown as UIMessage[])
+  }
+
   return (
     <div
       className={cn(
@@ -150,12 +192,39 @@ export function ChatInterface({
         className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
       >
         {messages.length === 0 ? (
-          <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">SYS.HEALTH Coach</p>
-            <p>
-              Pergunte sobre nutrição, sono, HRV ou recuperação com base nos
-              seus dados de hoje.
-            </p>
+          <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-4 text-center text-sm text-muted-foreground">
+            <div className="flex flex-col gap-2">
+              <p className="font-medium text-foreground">SYS.HEALTH Coach</p>
+              <p>
+                Pergunte sobre nutrição, sono, HRV ou recuperação com base nos
+                seus dados de hoje.
+              </p>
+            </div>
+
+            {historyPairs.length > 0 ? (
+              <div className="w-full max-w-xl text-left">
+                <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                  Histórico recente
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {historyPairs.map((pair) => (
+                    <button
+                      key={pair.id}
+                      type="button"
+                      onClick={() => handleOpenHistoryPair(pair)}
+                      className="rounded-lg border border-border bg-background/60 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <span className="line-clamp-2 text-sm font-medium text-foreground">
+                        {pair.question}
+                      </span>
+                      <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+                        {pair.answer}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           messages.map((message, index) => {
