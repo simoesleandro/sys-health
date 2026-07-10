@@ -35,6 +35,8 @@ import {
   createMeal,
   getRecentFoodPortions,
   getRecentMealTemplates,
+  getTodayMealMacroSnapshot,
+  type MealMacroSnapshot,
   type RecentFoodPortion,
   type RecentMealTemplate,
 } from "@/lib/actions/meals"
@@ -86,6 +88,7 @@ function resetModalState(
     setPendingAnalysis: (v: PendingMealAnalysis | null) => void
     setInlineHint: (v: string | null) => void
     setSaveAiItemsToBank: (v: boolean) => void
+    setMacroSnapshot: (v: MealMacroSnapshot | null) => void
     setRecentFoodPortions: (v: Record<number, RecentFoodPortion>) => void
     setRecentMeals: (v: RecentMealTemplate[]) => void
     setComboHint: (v: string | null) => void
@@ -108,6 +111,7 @@ function resetModalState(
   setters.setPendingAnalysis(null)
   setters.setInlineHint(null)
   setters.setSaveAiItemsToBank(true)
+  setters.setMacroSnapshot(null)
   setters.setRecentFoodPortions({})
   setters.setRecentMeals([])
   setters.setComboHint(null)
@@ -122,6 +126,13 @@ type PendingMealAnalysis = MealAiAnalysisMeta & {
 }
 
 type ShortcutTab = "smart" | "recent" | "favorite" | "combo"
+
+const MACRO_SUMMARY_ITEMS = [
+  { key: "calorias", label: "Kcal", unit: "" },
+  { key: "proteinas", label: "Prot", unit: "g" },
+  { key: "carboidratos", label: "Carb", unit: "g" },
+  { key: "gorduras", label: "Gord", unit: "g" },
+] as const
 
 function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
@@ -142,6 +153,16 @@ function normalizeFoodUnit(value: string): FoodReferenceUnit {
 
 function formatQuantityInput(value: number) {
   return String(value)
+}
+
+function formatRemainingMacro(value: number, unit: string) {
+  const rounded = Math.round(value * 10) / 10
+  const absValue = Math.abs(rounded)
+  const formatted = Number.isInteger(absValue)
+    ? String(absValue)
+    : absValue.toFixed(1)
+
+  return `${rounded < 0 ? "+" : ""}${formatted}${unit}`
 }
 
 function normalizeFoodCategory(value: string) {
@@ -266,6 +287,8 @@ export function MealModal() {
   )
   const [pendingAnalysis, setPendingAnalysis] =
     React.useState<PendingMealAnalysis | null>(null)
+  const [macroSnapshot, setMacroSnapshot] =
+    React.useState<MealMacroSnapshot | null>(null)
 
   const trimmedQuery = query.trim()
   const showEmptySearchHint =
@@ -275,6 +298,28 @@ export function MealModal() {
     !pendingFood
 
   const totals = React.useMemo(() => sumCartMacros(cart), [cart])
+  const macroRemaining = React.useMemo(() => {
+    if (!macroSnapshot) return null
+
+    return {
+      calorias:
+        macroSnapshot.goals.calorias -
+        macroSnapshot.consumed.calorias -
+        totals.calorias,
+      proteinas:
+        macroSnapshot.goals.proteinas -
+        macroSnapshot.consumed.proteinas -
+        totals.proteinas,
+      carboidratos:
+        macroSnapshot.goals.carboidratos -
+        macroSnapshot.consumed.carboidratos -
+        totals.carboidratos,
+      gorduras:
+        macroSnapshot.goals.gorduras -
+        macroSnapshot.consumed.gorduras -
+        totals.gorduras,
+    }
+  }, [macroSnapshot, totals])
   const hasUnsavedAiItems = React.useMemo(
     () => cart.some(isUnsavedAiCartItem),
     [cart]
@@ -341,6 +386,7 @@ export function MealModal() {
   React.useEffect(() => {
     if (!open) return
 
+    void getTodayMealMacroSnapshot().then(setMacroSnapshot)
     void getFoodShortcuts(8, 8).then(setQuickFoods)
     void getRecentFoodPortions(80).then((portions) =>
       setRecentFoodPortions(indexRecentFoodPortions(portions))
@@ -386,6 +432,7 @@ export function MealModal() {
         setPendingAnalysis,
         setInlineHint,
         setSaveAiItemsToBank,
+        setMacroSnapshot,
         setRecentFoodPortions,
         setRecentMeals,
         setComboHint,
@@ -730,6 +777,37 @@ export function MealModal() {
               </SelectContent>
             </Select>
           </div>
+
+          {macroRemaining ? (
+            <div className="pt-2">
+              <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">
+                Restante hoje
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {MACRO_SUMMARY_ITEMS.map((item) => {
+                  const value = macroRemaining[item.key]
+                  return (
+                    <div
+                      key={item.key}
+                      className="rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5"
+                    >
+                      <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+                        {item.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "block text-sm font-semibold tabular-nums",
+                          value < 0 ? "text-amber-300" : "text-foreground"
+                        )}
+                      >
+                        {formatRemainingMacro(value, item.unit)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">

@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache"
 
 import { incrementFoodsUsage } from "@/lib/actions/foods"
 import { formatMealTimeBrt, getBrtTodayUtcBounds } from "@/lib/brt-time"
+import { getTodayNutritionTotals } from "@/lib/data"
 import type { CartItem, CreateMealInput, UpdateMealInput } from "@/lib/meals"
 import { parseStoredComponentes, storedComponentToCartItem } from "@/lib/meals"
 import { requireAuth } from "@/lib/supabase/auth"
 import { createServerSupabase } from "@/lib/supabase/server"
+import { getUserNutritionGoals } from "@/lib/user-settings"
 
 function revalidateMealPaths() {
   revalidatePath("/registros")
@@ -196,6 +198,43 @@ export type RecentFoodPortion = {
   foodId: number
   qtd: number
   unidade: string
+}
+
+export type MealMacroSnapshot = {
+  consumed: {
+    calorias: number
+    proteinas: number
+    carboidratos: number
+    gorduras: number
+  }
+  goals: {
+    calorias: number
+    proteinas: number
+    carboidratos: number
+    gorduras: number
+  }
+}
+
+export async function getTodayMealMacroSnapshot(): Promise<MealMacroSnapshot> {
+  const [consumed, goals] = await Promise.all([
+    getTodayNutritionTotals(),
+    getUserNutritionGoals(),
+  ])
+
+  return {
+    consumed: {
+      calorias: consumed.calorias,
+      proteinas: consumed.proteinas,
+      carboidratos: consumed.carboidratos,
+      gorduras: consumed.gorduras,
+    },
+    goals: {
+      calorias: goals.TMB_KCAL,
+      proteinas: goals.PROTEIN_G,
+      carboidratos: goals.CARBS_G,
+      gorduras: goals.FATS_G,
+    },
+  }
 }
 
 export async function getRecentMealTemplates(
