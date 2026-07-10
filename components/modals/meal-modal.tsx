@@ -127,6 +127,13 @@ type PendingMealAnalysis = MealAiAnalysisMeta & {
 
 type ShortcutTab = "smart" | "recent" | "favorite" | "combo"
 
+type MealModalMacroRemaining = {
+  calorias: number
+  proteinas: number
+  carboidratos: number
+  gorduras: number
+} | null
+
 const MACRO_SUMMARY_ITEMS = [
   { key: "calorias", label: "Kcal", unit: "" },
   { key: "proteinas", label: "Prot", unit: "g" },
@@ -163,6 +170,10 @@ function formatRemainingMacro(value: number, unit: string) {
     : absValue.toFixed(1)
 
   return `${rounded < 0 ? "+" : ""}${formatted}${unit}`
+}
+
+function roundMacro(value: number) {
+  return Math.round(value * 10) / 10
 }
 
 function normalizeFoodCategory(value: string) {
@@ -214,6 +225,79 @@ function sortFoodShortcuts(
 
       return a.descricao.localeCompare(b.descricao, "pt-BR")
     })
+}
+
+function getMacroFitScore(
+  food: FoodSearchResult,
+  remaining: NonNullable<MealModalMacroRemaining>
+) {
+  const remainingCalories = Math.max(remaining.calorias, 0)
+  const remainingProtein = Math.max(remaining.proteinas, 0)
+  const remainingCarbs = Math.max(remaining.carboidratos, 0)
+  const remainingFats = Math.max(remaining.gorduras, 0)
+
+  if (
+    remainingCalories <= 0 &&
+    remainingProtein <= 0 &&
+    remainingCarbs <= 0 &&
+    remainingFats <= 0
+  ) {
+    return 0
+  }
+
+  let score = Math.min(food.vezesUsado, 12) * 1.5
+
+  score += Math.min(food.proteinas, remainingProtein) * 5
+  score += Math.min(food.carboidratos, remainingCarbs) * 2.4
+  score += Math.min(food.gorduras, remainingFats) * 1.8
+
+  if (remainingCalories > 0) {
+    const targetCalories = Math.min(remainingCalories, 550)
+    const calorieDistance = Math.abs(food.calorias - targetCalories)
+    score += Math.max(0, 45 - calorieDistance / 8)
+
+    if (food.calorias > remainingCalories + 250) {
+      score -= 35
+    }
+  }
+
+  if (food.proteinas >= 20 && remainingProtein >= 15) score += 18
+  if (food.carboidratos >= 25 && remainingCarbs >= 25) score += 10
+
+  return score
+}
+
+function getMacroFitLabel(
+  food: FoodSearchResult,
+  remaining: NonNullable<MealModalMacroRemaining>
+) {
+  const options = [
+    {
+      label: "proteína",
+      value: Math.min(food.proteinas, Math.max(remaining.proteinas, 0)),
+      amount: food.proteinas,
+      unit: "g",
+    },
+    {
+      label: "carbo",
+      value: Math.min(food.carboidratos, Math.max(remaining.carboidratos, 0)),
+      amount: food.carboidratos,
+      unit: "g",
+    },
+    {
+      label: "gordura",
+      value: Math.min(food.gorduras, Math.max(remaining.gorduras, 0)),
+      amount: food.gorduras,
+      unit: "g",
+    },
+  ].sort((a, b) => b.value - a.value)
+
+  const best = options[0]
+  if (best && best.value > 0) {
+    return `${roundMacro(best.amount)}${best.unit} ${best.label}`
+  }
+
+  return `${Math.round(food.calorias)} kcal`
 }
 
 function indexRecentFoodPortions(portions: RecentFoodPortion[]) {
@@ -344,6 +428,29 @@ export function MealModal() {
     () => sortFoodShortcuts(results, category, { keepCombosLast: true }),
     [results, category]
   )
+  const macroSuggestedFoods = React.useMemo(() => {
+    if (!macroRemaining) return []
+
+    const cartFoodIds = new Set(
+      cart
+        .map((item) => item.bancoId)
+        .filter((foodId) => Number.isFinite(foodId) && foodId > 0)
+    )
+
+    return quickFoods
+      .filter((food) => !cartFoodIds.has(food.id))
+      .map((food) => ({
+        food,
+        label: getMacroFitLabel(food, macroRemaining),
+        score: getMacroFitScore(food, macroRemaining),
+      }))
+      .filter((item) => item.score > 12)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        return a.food.descricao.localeCompare(b.food.descricao, "pt-BR")
+      })
+      .slice(0, 4)
+  }, [cart, macroRemaining, quickFoods])
   const smartMeals = React.useMemo(
     () =>
       recentMeals
@@ -839,6 +946,39 @@ export function MealModal() {
               onChange={(event) => setQuery(event.target.value)}
               autoComplete="off"
             />
+
+            {!trimmedQuery &&
+              !pendingFood &&
+              macroSuggestedFoods.length > 0 && (
+                <div className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">
+                      Sugestões para hoje
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      Pelo restante
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {macroSuggestedFoods.map((suggestion) => (
+                      <button
+                        key={suggestion.food.id}
+                        type="button"
+                        onClick={() => handleSelectFood(suggestion.food)}
+                        className="rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <span className="block truncate font-medium">
+                          {suggestion.food.descricao}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {suggestion.label} ·{" "}
+                          {Math.round(suggestion.food.calorias)} kcal
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             {!trimmedQuery && hasShortcuts && !pendingFood && (
               <Tabs
