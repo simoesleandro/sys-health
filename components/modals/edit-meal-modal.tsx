@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Minus, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -29,10 +29,69 @@ import {
   type CartItem,
   type FoodSearchResult,
   MEAL_CATEGORIES,
+  calcItemMacros,
   cartToComponentes,
   foodToCartItem,
   sumCartMacros,
 } from "@/lib/meals"
+import { cn } from "@/lib/utils"
+
+const EDIT_MACRO_SUMMARY_ITEMS = [
+  { key: "calorias", label: "Kcal", unit: "" },
+  { key: "proteinas", label: "Prot", unit: "g" },
+  { key: "carboidratos", label: "Carb", unit: "g" },
+  { key: "gorduras", label: "Gord", unit: "g" },
+] as const
+
+const EDIT_MACRO_SUMMARY_ACCENTS = [
+  "border-brand-cyan/35 bg-brand-cyan/10",
+  "border-brand-green/35 bg-brand-green/10",
+  "border-brand-blue/35 bg-brand-blue/10",
+  "border-brand-magenta/35 bg-brand-magenta/10",
+] as const
+
+function roundMacro(value: number) {
+  return Math.round(value * 10) / 10
+}
+
+function formatMacroValue(value: number, unit: string) {
+  const rounded = roundMacro(value)
+  return `${Number.isInteger(rounded) ? Math.round(rounded) : rounded}${unit}`
+}
+
+function formatCartMacroSummary(item: CartItem) {
+  const macros = calcItemMacros(item)
+
+  return `${Math.round(macros.kcal)} kcal · P ${roundMacro(macros.prot)}g · C ${roundMacro(macros.carb)}g · G ${roundMacro(macros.gord)}g`
+}
+
+function normalizeUnit(value: string) {
+  const unit = value.trim().toLowerCase()
+  if (unit === "und" || unit === "un" || unit === "unidade") return "und"
+  return unit
+}
+
+function getCartQuantityStep(item: CartItem) {
+  const unit = normalizeUnit(item.unidade)
+  if (unit === "und" || unit === "dose") return 1
+  if (item.qtdRef >= 100) return 25
+  if (item.qtdRef >= 30) return 10
+  return 5
+}
+
+function clampCartQuantity(value: number, unit: string) {
+  if (!Number.isFinite(value)) return 1
+  const normalizedUnit = normalizeUnit(unit)
+  const min = normalizedUnit === "und" || normalizedUnit === "dose" ? 1 : 0.5
+  const rounded =
+    normalizedUnit === "und" || normalizedUnit === "dose"
+      ? Math.round(value)
+      : value >= 20
+        ? Math.round(value / 5) * 5
+        : Math.round(value * 10) / 10
+
+  return Math.max(min, rounded)
+}
 
 export function EditMealModal() {
   const router = useRouter()
@@ -163,6 +222,21 @@ export function EditMealModal() {
     )
   }
 
+  function handleAdjustCartQtd(uid: string, direction: -1 | 1) {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.uid !== uid) return item
+
+        const nextQtd = clampCartQuantity(
+          item.qtd + getCartQuantityStep(item) * direction,
+          item.unidade
+        )
+
+        return { ...item, qtd: nextQtd }
+      })
+    )
+  }
+
   function handleSave() {
     if (mealId == null) return
 
@@ -199,21 +273,38 @@ export function EditMealModal() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="fixed inset-x-3 top-[4dvh] flex max-h-[92dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className="fixed inset-x-3 top-[4dvh] flex max-h-[92dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-brand-cyan/25 bg-zinc-950 p-0 shadow-2xl shadow-brand-cyan/10 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2"
         showCloseButton
       >
-        <DialogHeader className="shrink-0 border-b px-4 py-4">
-          <DialogTitle>Editar refeição</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="shrink-0 border-b border-brand-cyan/20 bg-gradient-to-br from-cyan-950/45 via-zinc-950 to-purple-950/25 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle className="text-white">Editar refeição</DialogTitle>
+              <DialogDescription className="text-slate-300">
             Ajuste os alimentos, quantidades e categoria.
-          </DialogDescription>
+              </DialogDescription>
+            </div>
+            {cart.length > 0 ? (
+              <div className="shrink-0 rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1.5 text-right shadow-sm shadow-brand-cyan/10">
+                <span className="block text-[10px] font-medium uppercase text-brand-cyan">
+                  Itens
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-white">
+                  {cart.length}
+                </span>
+              </div>
+            ) : null}
+          </div>
 
           <div className="pt-2">
             <Label htmlFor="edit-meal-category" className="sr-only">
               Categoria
             </Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="edit-meal-category" className="w-full">
+              <SelectTrigger
+                id="edit-meal-category"
+                className="w-full border-brand-cyan/25 bg-black/35 text-white shadow-inner shadow-brand-cyan/10"
+              >
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -225,24 +316,57 @@ export function EditMealModal() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="pt-2">
+            <p className="mb-1 text-[10px] font-medium uppercase text-slate-400">
+              Total ajustado
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {EDIT_MACRO_SUMMARY_ITEMS.map((item, index) => {
+                const value = totals[item.key]
+                return (
+                  <div
+                    key={item.key}
+                    className={cn(
+                      "rounded-lg border px-2 py-1.5 shadow-sm",
+                      EDIT_MACRO_SUMMARY_ACCENTS[index]
+                    )}
+                  >
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
+                      {item.label}
+                    </span>
+                    <span className="block text-sm font-semibold tabular-nums text-white">
+                      {formatMacroValue(value, item.unit)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-zinc-950 via-zinc-950 to-cyan-950/20 px-4 py-4">
           {isLoadingMeal ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="flex items-center gap-2 rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-3 text-sm text-brand-cyan">
               <Loader2 className="size-4 animate-spin" />
               Carregando refeição...
             </p>
           ) : (
             <>
-              <section className="flex flex-col gap-2">
-                <Label htmlFor="edit-food-search">Buscar alimento</Label>
+              <section className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="edit-food-search">Buscar alimento</Label>
+                  <span className="text-xs text-muted-foreground">
+                    Adicionar item
+                  </span>
+                </div>
                 <Input
                   id="edit-food-search"
                   placeholder="Digite pelo menos 2 letras..."
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   autoComplete="off"
+                  className="border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
                 />
 
                 {isSearching && (
@@ -253,12 +377,12 @@ export function EditMealModal() {
                 )}
 
                 {!isSearching && results.length > 0 && (
-                  <ul className="max-h-40 overflow-y-auto rounded-lg border border-border">
+                  <ul className="max-h-40 overflow-y-auto rounded-lg border border-brand-blue/25 bg-brand-blue/5">
                     {results.map((food) => (
                       <li key={food.id}>
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60"
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-brand-blue/10"
                           onClick={() => handleSelectFood(food)}
                         >
                           <span className="min-w-0 truncate">{food.descricao}</span>
@@ -273,7 +397,7 @@ export function EditMealModal() {
                 )}
 
                 {pendingFood && (
-                  <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+                  <div className="rounded-lg border border-brand-cyan/35 bg-brand-cyan/10 p-3 shadow-sm shadow-brand-cyan/10">
                     <p className="text-sm font-medium">{pendingFood.descricao}</p>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
                       <div className="flex-1">
@@ -317,48 +441,98 @@ export function EditMealModal() {
                 )}
               </section>
 
-              <section className="flex min-h-0 flex-1 flex-col gap-2">
-                <h3 className="text-sm font-medium">Itens da refeição</h3>
+              <section className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                <div>
+                  <h3 className="text-sm font-medium">Itens da refeição</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {cart.length > 0
+                      ? `${cart.length} ${cart.length === 1 ? "item" : "itens"} nesta refeição`
+                      : "Adicione alimentos para atualizar a refeição"}
+                  </p>
+                </div>
 
                 {cart.length === 0 ? (
-                  <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                    Nenhum item na refeição.
-                  </p>
+                  <div className="rounded-lg border border-dashed border-brand-blue/30 bg-brand-blue/5 px-3 py-5 text-center">
+                    <p className="text-sm font-medium text-white">
+                      Nenhum item na refeição
+                    </p>
+                    <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
+                      Busque um alimento acima para reconstruir esta refeição.
+                    </p>
+                  </div>
                 ) : (
                   <ul className="flex flex-col gap-2">
                     {cart.map((item) => (
                       <li
                         key={item.uid}
-                        className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
+                        className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {item.nome}
-                          </p>
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {item.nome}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {formatCartMacroSummary(item)}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveFromCart(item.uid)}
+                            aria-label={`Remover ${item.nome}`}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
                         </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="h-8 w-20"
-                          value={item.qtd}
-                          onChange={(event) =>
-                            handleUpdateCartQtd(item.uid, event.target.value)
-                          }
-                        />
-                        <span className="w-6 text-xs text-muted-foreground">
-                          {item.unidade}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemoveFromCart(item.uid)}
-                          aria-label={`Remover ${item.nome}`}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+
+                        <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              onClick={() => handleAdjustCartQtd(item.uid, -1)}
+                              aria-label={`Diminuir quantidade de ${item.nome}`}
+                            >
+                              <Minus className="size-3.5" />
+                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                className="h-8 w-20 text-center"
+                                value={item.qtd}
+                                onChange={(event) =>
+                                  handleUpdateCartQtd(
+                                    item.uid,
+                                    event.target.value
+                                  )
+                                }
+                              />
+                              <span className="w-8 text-xs text-muted-foreground">
+                                {item.unidade}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              onClick={() => handleAdjustCartQtd(item.uid, 1)}
+                              aria-label={`Aumentar quantidade de ${item.nome}`}
+                            >
+                              <Plus className="size-3.5" />
+                            </Button>
+                          </div>
+
+                          <span className="text-xs text-muted-foreground">
+                            +/- {getCartQuantityStep(item)}
+                            {item.unidade}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -374,16 +548,20 @@ export function EditMealModal() {
           )}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground sm:mr-auto">
-            {Math.round(totals.calorias)} kcal · P {Math.round(totals.proteinas)}g
-            · C {Math.round(totals.carboidratos)}g · G {Math.round(totals.gorduras)}
-            g
+        <DialogFooter className="shrink-0 flex-col gap-3 border-t border-brand-cyan/20 bg-black/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="w-full rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2 text-xs text-slate-300 sm:mr-auto sm:w-auto">
+            <span className="font-medium text-foreground">
+              {Math.round(totals.calorias)} kcal
+            </span>{" "}
+            · P {Math.round(totals.proteinas)}g · C{" "}
+            {Math.round(totals.carboidratos)}g · G{" "}
+            {Math.round(totals.gorduras)}g
           </p>
           <Button
             type="button"
             onClick={handleSave}
             disabled={isSaving || isLoadingMeal || cart.length === 0}
+            className="w-full sm:w-auto"
           >
             {isSaving ? (
               <>
