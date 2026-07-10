@@ -16,6 +16,7 @@ export type FoodSearchResult = {
   id: number
   descricao: string
   categoria: string
+  vezesUsado: number
   calorias: number
   proteinas: number
   carboidratos: number

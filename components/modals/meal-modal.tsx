@@ -154,6 +154,38 @@ function isMealTemplateForCategory(
   return normalizeFoodCategory(meal.categoria) === normalizeFoodCategory(categoria)
 }
 
+function getFoodShortcutScore(food: FoodSearchResult, categoria: string) {
+  const usageScore = Math.min(food.vezesUsado, 30) * 3
+  const categoryScore =
+    normalizeFoodCategory(food.categoria) === normalizeFoodCategory(categoria)
+      ? 24
+      : 0
+  const comboScore = isComboFood(food) ? 8 : 0
+
+  return usageScore + categoryScore + comboScore
+}
+
+function sortFoodShortcuts(
+  foods: FoodSearchResult[],
+  categoria: string,
+  options: { keepCombosLast?: boolean } = {}
+) {
+  return foods
+    .slice()
+    .sort((a, b) => {
+      if (options.keepCombosLast && isComboFood(a) !== isComboFood(b)) {
+        return isComboFood(a) ? 1 : -1
+      }
+
+      const scoreDiff =
+        getFoodShortcutScore(b, categoria) -
+        getFoodShortcutScore(a, categoria)
+      if (scoreDiff !== 0) return scoreDiff
+
+      return a.descricao.localeCompare(b.descricao, "pt-BR")
+    })
+}
+
 function cartItemToFoodInput(item: CartItem, categoria: string): FoodFormInput {
   const macros = calcItemMacros(item)
 
@@ -229,12 +261,24 @@ export function MealModal() {
     [cart]
   )
   const comboFoods = React.useMemo(
-    () => quickFoods.filter(isComboFood),
-    [quickFoods]
+    () =>
+      sortFoodShortcuts(
+        quickFoods.filter(isComboFood),
+        category
+      ),
+    [quickFoods, category]
   )
   const favoriteFoods = React.useMemo(
-    () => quickFoods.filter((food) => !isComboFood(food)),
-    [quickFoods]
+    () =>
+      sortFoodShortcuts(
+        quickFoods.filter((food) => !isComboFood(food)),
+        category
+      ),
+    [quickFoods, category]
+  )
+  const sortedResults = React.useMemo(
+    () => sortFoodShortcuts(results, category, { keepCombosLast: true }),
+    [results, category]
   )
   const smartMeals = React.useMemo(
     () =>
@@ -738,6 +782,7 @@ export function MealModal() {
                         <span className="mt-0.5 block text-xs text-muted-foreground">
                           {Math.round(food.calorias)} kcal / {food.qtdReferencia}
                           {food.unidadeReferencia}
+                          {food.vezesUsado > 0 ? ` · ${food.vezesUsado}x` : ""}
                         </span>
                       </button>
                     ))}
@@ -759,6 +804,7 @@ export function MealModal() {
                         <span className="mt-0.5 block text-xs text-muted-foreground">
                           {Math.round(food.calorias)} kcal · P{" "}
                           {Math.round(food.proteinas)}g
+                          {food.vezesUsado > 0 ? ` · ${food.vezesUsado}x` : ""}
                         </span>
                       </button>
                     ))}
@@ -774,9 +820,9 @@ export function MealModal() {
               </p>
             )}
 
-            {!isSearching && results.length > 0 && (
+            {!isSearching && sortedResults.length > 0 && (
               <ul className="max-h-40 overflow-y-auto rounded-lg border border-border">
-                {results.map((food) => (
+                {sortedResults.map((food) => (
                   <li key={food.id}>
                     <button
                       type="button"
@@ -787,6 +833,7 @@ export function MealModal() {
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {Math.round(food.calorias)} kcal / {food.qtdReferencia}
                         {food.unidadeReferencia}
+                        {food.vezesUsado > 0 ? ` · ${food.vezesUsado}x` : ""}
                       </span>
                     </button>
                   </li>

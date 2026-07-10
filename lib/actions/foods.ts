@@ -61,6 +61,7 @@ function mapFoodSearchRow(row: Record<string, unknown>): FoodSearchResult {
     id: Number(row.id),
     descricao: String(row.descricao ?? ""),
     categoria: String(row.categoria ?? "Lanche"),
+    vezesUsado: Number(row.vezes_usado ?? 0),
     calorias: Number(row.calorias ?? 0),
     proteinas: Number(row.proteinas ?? 0),
     carboidratos: Number(row.carboidratos ?? 0),
@@ -81,7 +82,7 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
     const { data, error } = await supabase
       .from("alimentos_favoritos")
       .select(
-        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+        "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
       )
       .ilike("descricao", `%${term}%`)
       .order("vezes_usado", { ascending: false })
@@ -105,7 +106,7 @@ export async function getFrequentFoods(limit = 8): Promise<FoodSearchResult[]> {
     const { data, error } = await supabase
       .from("alimentos_favoritos")
       .select(
-        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+        "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
       )
       .order("vezes_usado", { ascending: false })
       .order("descricao", { ascending: true })
@@ -131,7 +132,7 @@ export async function getFoodShortcuts(
 
   try {
     const selectFields =
-      "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+      "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
     const [frequentResult, comboResult] = await Promise.all([
       supabase
         .from("alimentos_favoritos")
@@ -186,7 +187,7 @@ export async function createFood(data: FoodFormInput) {
         vezes_usado: 0,
       })
       .select(
-        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+        "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
       )
       .single()
 
