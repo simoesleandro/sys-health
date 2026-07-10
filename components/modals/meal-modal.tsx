@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react"
+import { Loader2, Minus, Plus, Save, Sparkles, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -409,6 +409,26 @@ function formatMealTemplateItems(meal: RecentMealTemplate) {
 
 function formatMealTemplateCount(meal: RecentMealTemplate) {
   return `${meal.cart.length} ${meal.cart.length === 1 ? "item" : "itens"}`
+}
+
+function formatCartMacroSummary(item: CartItem) {
+  const macros = calcItemMacros(item)
+
+  return `${Math.round(macros.kcal)} kcal · P ${roundMacro(macros.prot)}g · C ${roundMacro(macros.carb)}g · G ${roundMacro(macros.gord)}g`
+}
+
+function getCartQuantityStep(item: CartItem) {
+  const unit = normalizeFoodUnit(item.unidade)
+  if (unit === "und") return 1
+  if (item.qtdRef >= 100) return 25
+  if (item.qtdRef >= 30) return 10
+  return 5
+}
+
+function clampCartQuantity(value: number, unit: string) {
+  if (!Number.isFinite(value)) return 1
+  const min = normalizeFoodUnit(unit) === "und" ? 1 : 0.5
+  return Math.max(min, roundSuggestedQuantity(value, normalizeFoodUnit(unit)))
 }
 
 export function MealModal() {
@@ -891,6 +911,21 @@ export function MealModal() {
           ? { ...item, qtd: Number.isFinite(qtd) && qtd > 0 ? qtd : item.qtd }
           : item
       )
+    )
+  }
+
+  function handleAdjustCartQtd(uid: string, direction: -1 | 1) {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.uid !== uid || isSupplementCartItem(item)) return item
+
+        const nextQtd = clampCartQuantity(
+          item.qtd + getCartQuantityStep(item) * direction,
+          item.unidade
+        )
+
+        return { ...item, qtd: nextQtd }
+      })
     )
   }
 
@@ -1600,45 +1635,91 @@ export function MealModal() {
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {cart.map((item) => (
-                  <li
-                    key={item.uid}
-                    className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{item.nome}</p>
-                    </div>
-                    {isSupplementCartItem(item) ? (
-                      <span className="text-xs text-muted-foreground">1 dose</span>
-                    ) : (
-                      <>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="h-8 w-20"
-                          value={item.qtd}
-                          onChange={(event) =>
-                            handleUpdateCartQtd(item.uid, event.target.value)
-                          }
-                        />
-                        <span className="w-6 text-xs text-muted-foreground">
-                          {item.unidade}
-                        </span>
-                      </>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveFromCart(item.uid)}
-                      aria-label={`Remover ${item.nome}`}
+                {cart.map((item) => {
+                  const isSupplement = isSupplementCartItem(item)
+
+                  return (
+                    <li
+                      key={item.uid}
+                      className="rounded-lg border border-border px-3 py-2.5"
                     >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </li>
-                ))}
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {item.nome}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatCartMacroSummary(item)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveFromCart(item.uid)}
+                          aria-label={`Remover ${item.nome}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        {isSupplement ? (
+                          <span className="rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                            1 dose
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              onClick={() => handleAdjustCartQtd(item.uid, -1)}
+                              aria-label={`Diminuir quantidade de ${item.nome}`}
+                            >
+                              <Minus className="size-3.5" />
+                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                className="h-8 w-20 text-center"
+                                value={item.qtd}
+                                onChange={(event) =>
+                                  handleUpdateCartQtd(
+                                    item.uid,
+                                    event.target.value
+                                  )
+                                }
+                              />
+                              <span className="w-8 text-xs text-muted-foreground">
+                                {item.unidade}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              onClick={() => handleAdjustCartQtd(item.uid, 1)}
+                              aria-label={`Aumentar quantidade de ${item.nome}`}
+                            >
+                              <Plus className="size-3.5" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {!isSupplement ? (
+                          <span className="text-xs text-muted-foreground">
+                            +/- {getCartQuantityStep(item)}
+                            {item.unidade}
+                          </span>
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </section>
