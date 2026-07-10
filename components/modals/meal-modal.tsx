@@ -93,6 +93,7 @@ function resetModalState(
     setRecentFoodPortions: (v: Record<number, RecentFoodPortion>) => void
     setRecentMeals: (v: RecentMealTemplate[]) => void
     setComboHint: (v: string | null) => void
+    setCartFeedback: (v: CartFeedback | null) => void
     setComboDialogOpen: (v: boolean) => void
     setComboName: (v: string) => void
     setComboError: (v: string | null) => void
@@ -117,6 +118,7 @@ function resetModalState(
   setters.setRecentFoodPortions({})
   setters.setRecentMeals([])
   setters.setComboHint(null)
+  setters.setCartFeedback(null)
   setters.setComboDialogOpen(false)
   setters.setComboName("")
   setters.setComboError(null)
@@ -128,6 +130,11 @@ type PendingMealAnalysis = MealAiAnalysisMeta & {
 }
 
 type ShortcutTab = "smart" | "recent" | "favorite" | "combo"
+
+type CartFeedback = {
+  message: string
+  uids: string[]
+}
 
 type MealModalMacroRemaining = {
   calorias: number
@@ -431,6 +438,10 @@ function clampCartQuantity(value: number, unit: string) {
   return Math.max(min, roundSuggestedQuantity(value, normalizeFoodUnit(unit)))
 }
 
+function formatAddedItemsMessage(count: number, source = "carrinho") {
+  return `${count} ${count === 1 ? "item adicionado" : "itens adicionados"} ao ${source}.`
+}
+
 export function MealModal() {
   const router = useRouter()
   const { open, setOpen } = useMealModal()
@@ -458,6 +469,8 @@ export function MealModal() {
     React.useState<FoodFormInput>(EMPTY_INLINE_FORM)
   const [inlineHint, setInlineHint] = React.useState<string | null>(null)
   const [comboHint, setComboHint] = React.useState<string | null>(null)
+  const [cartFeedback, setCartFeedback] =
+    React.useState<CartFeedback | null>(null)
   const [comboError, setComboError] = React.useState<string | null>(null)
   const [comboDialogOpen, setComboDialogOpen] = React.useState(false)
   const [comboName, setComboName] = React.useState("")
@@ -606,6 +619,13 @@ export function MealModal() {
   }, [open])
 
   React.useEffect(() => {
+    if (!cartFeedback) return
+
+    const timer = window.setTimeout(() => setCartFeedback(null), 2600)
+    return () => window.clearTimeout(timer)
+  }, [cartFeedback])
+
+  React.useEffect(() => {
     if (!open) return
 
     const term = query.trim()
@@ -648,6 +668,7 @@ export function MealModal() {
         setRecentFoodPortions,
         setRecentMeals,
         setComboHint,
+        setCartFeedback,
         setComboDialogOpen,
         setComboName,
         setComboError,
@@ -689,7 +710,12 @@ export function MealModal() {
       return
     }
 
-    setCart((prev) => [...prev, foodToCartItem(pendingFood, qtd)])
+    const nextItem = foodToCartItem(pendingFood, qtd)
+    setCart((prev) => [...prev, nextItem])
+    setCartFeedback({
+      message: `${nextItem.nome} adicionado ao carrinho.`,
+      uids: [nextItem.uid],
+    })
     setPendingFood(null)
     setPendingQtd("")
     setPendingQtdHint(null)
@@ -700,10 +726,17 @@ export function MealModal() {
   }
 
   function handleAddRecentMeal(meal: RecentMealTemplate) {
-    setCart((prev) => [...prev, ...meal.cart.map(cloneCartItem)])
+    const nextItems = meal.cart.map(cloneCartItem)
+    setCart((prev) => [...prev, ...nextItems])
     setCategory(meal.categoria)
     setError(null)
-    setComboHint(`${meal.categoria} repetida no carrinho.`)
+    setCartFeedback({
+      message: `Refeição repetida: ${formatAddedItemsMessage(
+        nextItems.length
+      )}`,
+      uids: nextItems.map((item) => item.uid),
+    })
+    setComboHint(null)
   }
 
   function renderMealTemplateButton(
@@ -750,12 +783,16 @@ export function MealModal() {
 
   function toggleSupplement(preset: SupplementPreset) {
     const uid = `supp-${preset.id}`
-    setCart((prev) => {
-      if (prev.some((item) => item.uid === uid)) {
-        return prev.filter((item) => item.uid !== uid)
-      }
-      return [...prev, supplementToCartItem(preset)]
-    })
+    if (cart.some((item) => item.uid === uid)) {
+      setCart((prev) => prev.filter((item) => item.uid !== uid))
+    } else {
+      const nextItem = supplementToCartItem(preset)
+      setCart((prev) => [...prev, nextItem])
+      setCartFeedback({
+        message: `${nextItem.nome} adicionado ao carrinho.`,
+        uids: [nextItem.uid],
+      })
+    }
     setError(null)
     setComboHint(null)
   }
@@ -784,13 +821,18 @@ export function MealModal() {
     items: MealAnalysisItem[]
     meta: MealAiAnalysisMeta
   }) {
-    setCart((prev) => [...prev, ...payload.items.map(aiItemToCartItem)])
+    const nextItems = payload.items.map(aiItemToCartItem)
+    setCart((prev) => [...prev, ...nextItems])
     setPendingAnalysis({
       ...payload.meta,
       itens: payload.items,
     })
     setActiveTab("manual")
     setError(null)
+    setCartFeedback({
+      message: `IA: ${formatAddedItemsMessage(nextItems.length)}`,
+      uids: nextItems.map((item) => item.uid),
+    })
     setComboHint(null)
   }
 
@@ -856,7 +898,12 @@ export function MealModal() {
       }
 
       const qtd = inlineForm.qtdReferencia
-      setCart((prev) => [...prev, foodToCartItem(result.food, qtd)])
+      const nextItem = foodToCartItem(result.food, qtd)
+      setCart((prev) => [...prev, nextItem])
+      setCartFeedback({
+        message: `${nextItem.nome} criado e adicionado ao carrinho.`,
+        uids: [nextItem.uid],
+      })
       setShowInlineCreate(false)
       setInlineForm(EMPTY_INLINE_FORM)
       setQuery("")
@@ -1623,6 +1670,15 @@ export function MealModal() {
                 </span>
               </label>
             ) : null}
+            {cartFeedback ? (
+              <p
+                className="rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-2 text-xs font-medium text-brand-cyan"
+                role="status"
+                aria-live="polite"
+              >
+                {cartFeedback.message}
+              </p>
+            ) : null}
             {comboHint ? (
               <p className="rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-2 text-xs text-brand-cyan">
                 {comboHint}
@@ -1630,18 +1686,31 @@ export function MealModal() {
             ) : null}
 
             {cart.length === 0 ? (
-              <p className="rounded-lg border border-dashed px-3 py-5 text-center text-sm text-muted-foreground">
-                Nenhum item no carrinho.
-              </p>
+              <div className="rounded-lg border border-dashed px-3 py-5 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Carrinho vazio
+                </p>
+                <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
+                  Busque um alimento, use um atalho recente ou peça para a IA
+                  montar os itens da refeição.
+                </p>
+              </div>
             ) : (
               <ul className="flex flex-col gap-2">
                 {cart.map((item) => {
                   const isSupplement = isSupplementCartItem(item)
+                  const isRecentlyAdded =
+                    cartFeedback?.uids.includes(item.uid) ?? false
 
                   return (
                     <li
                       key={item.uid}
-                      className="rounded-lg border border-border px-3 py-2.5"
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 transition-colors",
+                        isRecentlyAdded
+                          ? "border-brand-cyan/50 bg-brand-cyan/10"
+                          : "border-border"
+                      )}
                     >
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
@@ -1664,7 +1733,7 @@ export function MealModal() {
                         </Button>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                         {isSupplement ? (
                           <span className="rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
                             1 dose
