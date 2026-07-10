@@ -33,12 +33,15 @@ import { createFood, getFoodShortcuts, searchFoods } from "@/lib/actions/foods"
 import { logMealAnalysis } from "@/lib/actions/meal-analysis"
 import {
   createMeal,
+  getRecentFoodPortions,
   getRecentMealTemplates,
+  type RecentFoodPortion,
   type RecentMealTemplate,
 } from "@/lib/actions/meals"
 import type { MealAnalysisItem } from "@/lib/meal-analysis"
 import {
   FOOD_REFERENCE_UNITS,
+  formatFoodPortion,
   type FoodFormInput,
   type FoodReferenceUnit,
 } from "@/lib/foods"
@@ -83,6 +86,7 @@ function resetModalState(
     setPendingAnalysis: (v: PendingMealAnalysis | null) => void
     setInlineHint: (v: string | null) => void
     setSaveAiItemsToBank: (v: boolean) => void
+    setRecentFoodPortions: (v: Record<number, RecentFoodPortion>) => void
     setRecentMeals: (v: RecentMealTemplate[]) => void
     setComboHint: (v: string | null) => void
     setComboDialogOpen: (v: boolean) => void
@@ -104,6 +108,7 @@ function resetModalState(
   setters.setPendingAnalysis(null)
   setters.setInlineHint(null)
   setters.setSaveAiItemsToBank(true)
+  setters.setRecentFoodPortions({})
   setters.setRecentMeals([])
   setters.setComboHint(null)
   setters.setComboDialogOpen(false)
@@ -133,6 +138,10 @@ function normalizeFoodUnit(value: string): FoodReferenceUnit {
   }
   if (unit === "un" || unit === "unidade" || unit === "unidades") return "und"
   return "g"
+}
+
+function formatQuantityInput(value: number) {
+  return String(value)
 }
 
 function normalizeFoodCategory(value: string) {
@@ -186,6 +195,13 @@ function sortFoodShortcuts(
     })
 }
 
+function indexRecentFoodPortions(portions: RecentFoodPortion[]) {
+  return portions.reduce<Record<number, RecentFoodPortion>>((acc, portion) => {
+    acc[portion.foodId] = portion
+    return acc
+  }, {})
+}
+
 function cartItemToFoodInput(item: CartItem, categoria: string): FoodFormInput {
   const macros = calcItemMacros(item)
 
@@ -215,6 +231,9 @@ export function MealModal() {
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
   const [quickFoods, setQuickFoods] = React.useState<FoodSearchResult[]>([])
+  const [recentFoodPortions, setRecentFoodPortions] = React.useState<
+    Record<number, RecentFoodPortion>
+  >({})
   const [recentMeals, setRecentMeals] = React.useState<RecentMealTemplate[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
   const [cart, setCart] = React.useState<CartItem[]>([])
@@ -307,11 +326,25 @@ export function MealModal() {
     (shortcutTab === "combo" && comboFoods.length > 0)
       ? shortcutTab
       : fallbackShortcutTab
+  const pendingRecentPortion = React.useMemo(() => {
+    if (!pendingFood) return null
+
+    const recentPortion = recentFoodPortions[pendingFood.id]
+    if (!recentPortion) return null
+
+    return normalizeFoodUnit(recentPortion.unidade) ===
+      normalizeFoodUnit(pendingFood.unidadeReferencia)
+      ? recentPortion
+      : null
+  }, [pendingFood, recentFoodPortions])
 
   React.useEffect(() => {
     if (!open) return
 
     void getFoodShortcuts(8, 8).then(setQuickFoods)
+    void getRecentFoodPortions(80).then((portions) =>
+      setRecentFoodPortions(indexRecentFoodPortions(portions))
+    )
     void getRecentMealTemplates(10).then(setRecentMeals)
   }, [open])
 
@@ -353,6 +386,7 @@ export function MealModal() {
         setPendingAnalysis,
         setInlineHint,
         setSaveAiItemsToBank,
+        setRecentFoodPortions,
         setRecentMeals,
         setComboHint,
         setComboDialogOpen,
@@ -366,8 +400,18 @@ export function MealModal() {
   }
 
   function handleSelectFood(food: FoodSearchResult) {
+    const recentPortion = recentFoodPortions[food.id]
+    const shouldUseRecentPortion =
+      recentPortion &&
+      normalizeFoodUnit(recentPortion.unidade) ===
+        normalizeFoodUnit(food.unidadeReferencia)
+
     setPendingFood(food)
-    setPendingQtd(String(food.qtdReferencia))
+    setPendingQtd(
+      formatQuantityInput(
+        shouldUseRecentPortion ? recentPortion.qtd : food.qtdReferencia
+      )
+    )
     setError(null)
   }
 
@@ -1033,6 +1077,15 @@ export function MealModal() {
             {pendingFood && (
               <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
                 <p className="text-sm font-medium">{pendingFood.descricao}</p>
+                {pendingRecentPortion ? (
+                  <p className="mt-1 text-xs text-brand-cyan">
+                    Última porção:{" "}
+                    {formatFoodPortion(
+                      pendingRecentPortion.qtd,
+                      pendingRecentPortion.unidade
+                    )}
+                  </p>
+                ) : null}
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
                   <div className="flex-1">
                     <Label htmlFor="pending-qtd">Quantidade</Label>

@@ -192,6 +192,12 @@ export type RecentMealTemplate = {
   cart: CartItem[]
 }
 
+export type RecentFoodPortion = {
+  foodId: number
+  qtd: number
+  unidade: string
+}
+
 export async function getRecentMealTemplates(
   limit = 6
 ): Promise<RecentMealTemplate[]> {
@@ -233,6 +239,57 @@ export async function getRecentMealTemplates(
       .filter((meal) => meal.cart.length > 0)
   } catch (error) {
     console.error("[getRecentMealTemplates]", error)
+    return []
+  }
+}
+
+export async function getRecentFoodPortions(
+  limit = 80
+): Promise<RecentFoodPortion[]> {
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 120)
+  const supabase = await createServerSupabase()
+  if (!supabase) return []
+
+  try {
+    const { data, error } = await supabase
+      .from("refeicoes")
+      .select("componentes_json")
+      .order("data_hora", { ascending: false })
+      .limit(safeLimit)
+
+    if (error) throw error
+
+    const byFoodId = new Map<number, RecentFoodPortion>()
+
+    for (const row of data ?? []) {
+      const componentes = parseStoredComponentes(
+        row.componentes_json as string | null
+      )
+
+      for (const item of componentes) {
+        const foodId = Number(item.banco_id)
+        const qtd = Number(item.gramas)
+        if (
+          byFoodId.has(foodId) ||
+          !Number.isFinite(foodId) ||
+          foodId <= 0 ||
+          !Number.isFinite(qtd) ||
+          qtd <= 0
+        ) {
+          continue
+        }
+
+        byFoodId.set(foodId, {
+          foodId,
+          qtd,
+          unidade: item.unidade,
+        })
+      }
+    }
+
+    return Array.from(byFoodId.values())
+  } catch (error) {
+    console.error("[getRecentFoodPortions]", error)
     return []
   }
 }
