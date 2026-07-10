@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
-import { Eraser, Loader2, Send } from "lucide-react"
+import { Eraser, Loader2, Send, Square } from "lucide-react"
 
 import { CoachMessage } from "@/components/ia-coach/coach-message"
 import { Button } from "@/components/ui/button"
@@ -59,8 +59,15 @@ export function ChatInterface({
     )
   )
 
-  const { messages, setMessages, sendMessage, status, error, clearError } =
-    useChat({
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    error,
+    clearError,
+    stop,
+  } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     messages: initialMessages as unknown as UIMessage[],
   })
@@ -103,6 +110,7 @@ export function ChatInterface({
     const trimmedText = text.trim()
     if (!trimmedText || isBusy) return
 
+    clearError()
     sendMessage({ text: trimmedText })
     setInput("")
   }
@@ -214,9 +222,20 @@ export function ChatInterface({
           disabled={isBusy}
           className="flex-1"
         />
-        <Button type="submit" size="icon" disabled={isBusy || !input.trim()}>
-          <Send className="size-4" />
-          <span className="sr-only">Enviar</span>
+        <Button
+          type={isBusy ? "button" : "submit"}
+          size="icon"
+          disabled={!isBusy && !input.trim()}
+          onClick={isBusy ? stop : undefined}
+        >
+          {isBusy ? (
+            <Square className="size-3.5 fill-current" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          <span className="sr-only">
+            {isBusy ? "Parar resposta" : "Enviar"}
+          </span>
         </Button>
       </form>
     </div>
