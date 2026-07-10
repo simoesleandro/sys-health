@@ -285,11 +285,11 @@ export function EditMealModal() {
               </DialogDescription>
             </div>
             {cart.length > 0 ? (
-              <div className="shrink-0 rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1.5 text-right shadow-sm shadow-brand-cyan/10">
-                <span className="block text-[10px] font-medium uppercase text-brand-cyan">
+              <div className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 text-brand-cyan shadow-sm shadow-brand-cyan/10">
+                <span className="text-[10px] font-medium uppercase leading-none">
                   Itens
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-white">
+                <span className="text-xs font-semibold tabular-nums text-white">
                   {cart.length}
                 </span>
               </div>
@@ -321,21 +321,21 @@ export function EditMealModal() {
             <p className="mb-1 text-[10px] font-medium uppercase text-slate-400">
               Total ajustado
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2">
               {EDIT_MACRO_SUMMARY_ITEMS.map((item, index) => {
                 const value = totals[item.key]
                 return (
                   <div
                     key={item.key}
                     className={cn(
-                      "rounded-lg border px-2 py-1.5 shadow-sm",
+                      "min-w-0 rounded-lg border px-3 py-2 shadow-sm",
                       EDIT_MACRO_SUMMARY_ACCENTS[index]
                     )}
                   >
                     <span className="block text-[10px] font-medium uppercase text-slate-400">
                       {item.label}
                     </span>
-                    <span className="block text-sm font-semibold tabular-nums text-white">
+                    <span className="block truncate text-base font-semibold tabular-nums text-white">
                       {formatMacroValue(value, item.unit)}
                     </span>
                   </div>
