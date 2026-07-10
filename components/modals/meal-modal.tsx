@@ -937,11 +937,25 @@ export function MealModal() {
         className="fixed inset-x-3 top-[4dvh] flex max-h-[92dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2"
         showCloseButton
       >
-        <DialogHeader className="shrink-0 border-b px-4 py-4">
-          <DialogTitle>Nova refeição</DialogTitle>
-          <DialogDescription>
-            Manual, texto IA ou foto — monte o carrinho, ajuste macros e salve.
-          </DialogDescription>
+        <DialogHeader className="shrink-0 border-b px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle>Nova refeição</DialogTitle>
+              <DialogDescription>
+                Monte o carrinho, ajuste macros e salve.
+              </DialogDescription>
+            </div>
+            {cart.length > 0 ? (
+              <div className="shrink-0 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-1.5 text-right">
+                <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+                  Carrinho
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-foreground">
+                  {cart.length}
+                </span>
+              </div>
+            ) : null}
+          </div>
 
           <div className="pt-2">
             <Label htmlFor="meal-category" className="sr-only">
@@ -966,7 +980,7 @@ export function MealModal() {
               <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">
                 Restante hoje
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {MACRO_SUMMARY_ITEMS.map((item) => {
                   const value = macroRemaining[item.key]
                   return (
@@ -993,7 +1007,7 @@ export function MealModal() {
           ) : null}
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
           <Tabs
             value={activeTab}
             onValueChange={(value) =>
@@ -1013,8 +1027,15 @@ export function MealModal() {
             </TabsList>
 
             <TabsContent value="manual" className="mt-4">
-          <section className="flex flex-col gap-2">
-            <Label htmlFor="food-search">Buscar alimento</Label>
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="food-search">Buscar alimento</Label>
+              {!trimmedQuery && !pendingFood ? (
+                <span className="text-xs text-muted-foreground">
+                  Atalhos abaixo
+                </span>
+              ) : null}
+            </div>
             <Input
               id="food-search"
               placeholder="Digite pelo menos 2 letras..."
@@ -1071,7 +1092,7 @@ export function MealModal() {
               <Tabs
                 value={activeShortcutTab}
                 onValueChange={(value) => setShortcutTab(value as ShortcutTab)}
-                className="gap-2"
+                className="gap-3"
               >
                 <TabsList className="w-full">
                   <TabsTrigger
@@ -1479,9 +1500,16 @@ export function MealModal() {
             </section>
           )}
 
-          <section className="flex min-h-0 flex-1 flex-col gap-2">
+          <section className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium">Carrinho</h3>
+              <div>
+                <h3 className="text-sm font-medium">Carrinho</h3>
+                <p className="text-xs text-muted-foreground">
+                  {cart.length > 0
+                    ? `${cart.length} ${cart.length === 1 ? "item" : "itens"} nesta refeição`
+                    : "Adicione alimentos para montar a refeição"}
+                </p>
+              </div>
               {cart.length > 0 ? (
                 <Button
                   type="button"
@@ -1531,7 +1559,7 @@ export function MealModal() {
             ) : null}
 
             {cart.length === 0 ? (
-              <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+              <p className="rounded-lg border border-dashed px-3 py-5 text-center text-sm text-muted-foreground">
                 Nenhum item no carrinho.
               </p>
             ) : (
@@ -1660,16 +1688,20 @@ export function MealModal() {
           )}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground sm:mr-auto">
-            {Math.round(totals.calorias)} kcal · P {Math.round(totals.proteinas)}g
-            · C {Math.round(totals.carboidratos)}g · G {Math.round(totals.gorduras)}
-            g
+        <DialogFooter className="shrink-0 flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:mr-auto sm:w-auto">
+            <span className="font-medium text-foreground">
+              {Math.round(totals.calorias)} kcal
+            </span>{" "}
+            · P {Math.round(totals.proteinas)}g · C{" "}
+            {Math.round(totals.carboidratos)}g · G{" "}
+            {Math.round(totals.gorduras)}g
           </p>
           <Button
             type="button"
             onClick={handleSave}
             disabled={isSaving || cart.length === 0}
+            className="w-full sm:w-auto"
           >
             {isSaving ? (
               <>
