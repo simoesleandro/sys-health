@@ -150,6 +150,13 @@ const MACRO_SUMMARY_ITEMS = [
   { key: "gorduras", label: "Gord", unit: "g" },
 ] as const
 
+const MACRO_SUMMARY_ACCENTS = [
+  "border-brand-cyan/35 bg-brand-cyan/10",
+  "border-brand-green/35 bg-brand-green/10",
+  "border-brand-blue/35 bg-brand-blue/10",
+  "border-brand-magenta/35 bg-brand-magenta/10",
+] as const
+
 function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
 }
@@ -751,8 +758,8 @@ export function MealModal() {
         className={cn(
           "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
           options.compact
-            ? "border-border hover:bg-muted/50"
-            : "border-cyan/30 bg-cyan/5 hover:bg-cyan/10"
+            ? "border-brand-blue/25 bg-brand-blue/5 hover:border-brand-blue/40 hover:bg-brand-blue/10"
+            : "border-brand-purple/35 bg-brand-purple/10 hover:border-brand-purple/50 hover:bg-brand-purple/15"
         )}
       >
         <span className="flex items-center justify-between gap-2">
@@ -1044,23 +1051,23 @@ export function MealModal() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="fixed inset-x-3 top-[4dvh] flex max-h-[92dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className="fixed inset-x-3 top-[4dvh] flex max-h-[92dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-brand-cyan/25 bg-zinc-950 p-0 shadow-2xl shadow-brand-cyan/10 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2"
         showCloseButton
       >
-        <DialogHeader className="shrink-0 border-b px-4 py-3">
+        <DialogHeader className="shrink-0 border-b border-brand-cyan/20 bg-gradient-to-br from-cyan-950/45 via-zinc-950 to-purple-950/25 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <DialogTitle>Nova refeição</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-white">Nova refeição</DialogTitle>
+              <DialogDescription className="text-slate-300">
                 Monte o carrinho, ajuste macros e salve.
               </DialogDescription>
             </div>
             {cart.length > 0 ? (
-              <div className="shrink-0 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-1.5 text-right">
-                <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+              <div className="shrink-0 rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1.5 text-right shadow-sm shadow-brand-cyan/10">
+                <span className="block text-[10px] font-medium uppercase text-brand-cyan">
                   Carrinho
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-foreground">
+                <span className="text-sm font-semibold tabular-nums text-white">
                   {cart.length}
                 </span>
               </div>
@@ -1072,7 +1079,10 @@ export function MealModal() {
               Categoria
             </Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="meal-category" className="w-full">
+              <SelectTrigger
+                id="meal-category"
+                className="w-full border-brand-cyan/25 bg-black/35 text-white shadow-inner shadow-brand-cyan/10"
+              >
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -1087,24 +1097,27 @@ export function MealModal() {
 
           {macroRemaining ? (
             <div className="pt-2">
-              <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">
+              <p className="mb-1 text-[10px] font-medium uppercase text-slate-400">
                 Restante hoje
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {MACRO_SUMMARY_ITEMS.map((item) => {
+                {MACRO_SUMMARY_ITEMS.map((item, index) => {
                   const value = macroRemaining[item.key]
                   return (
                     <div
                       key={item.key}
-                      className="rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5"
+                      className={cn(
+                        "rounded-lg border px-2 py-1.5 shadow-sm",
+                        MACRO_SUMMARY_ACCENTS[index]
+                      )}
                     >
-                      <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+                      <span className="block text-[10px] font-medium uppercase text-slate-400">
                         {item.label}
                       </span>
                       <span
                         className={cn(
                           "block text-sm font-semibold tabular-nums",
-                          value < 0 ? "text-amber-300" : "text-foreground"
+                          value < 0 ? "text-amber-300" : "text-white"
                         )}
                       >
                         {formatRemainingMacro(value, item.unit)}
@@ -1117,21 +1130,30 @@ export function MealModal() {
           ) : null}
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-gradient-to-b from-zinc-950 via-zinc-950 to-cyan-950/20 px-4 py-4">
           <Tabs
             value={activeTab}
             onValueChange={(value) =>
               setActiveTab(value as "manual" | "text" | "photo")
             }
           >
-            <TabsList className="w-full">
-              <TabsTrigger value="manual" className="flex-1">
+            <TabsList className="w-full border border-white/10 bg-black/30">
+              <TabsTrigger
+                value="manual"
+                className="flex-1 data-[state=active]:border data-[state=active]:border-brand-cyan/35 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-white"
+              >
                 Manual
               </TabsTrigger>
-              <TabsTrigger value="text" className="flex-1">
+              <TabsTrigger
+                value="text"
+                className="flex-1 data-[state=active]:border data-[state=active]:border-brand-purple/35 data-[state=active]:bg-brand-purple/15 data-[state=active]:text-white"
+              >
                 Texto IA
               </TabsTrigger>
-              <TabsTrigger value="photo" className="flex-1">
+              <TabsTrigger
+                value="photo"
+                className="flex-1 data-[state=active]:border data-[state=active]:border-brand-blue/35 data-[state=active]:bg-brand-blue/15 data-[state=active]:text-white"
+              >
                 Foto IA
               </TabsTrigger>
             </TabsList>
@@ -1152,17 +1174,18 @@ export function MealModal() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               autoComplete="off"
+              className="border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
             />
 
             {!trimmedQuery &&
               !pendingFood &&
               macroSuggestedFoods.length > 0 && (
-                <div className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 p-3">
+                <div className="rounded-lg border border-brand-cyan/35 bg-gradient-to-br from-brand-cyan/15 via-cyan-950/25 to-brand-blue/10 p-3 shadow-sm shadow-brand-cyan/10">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-white">
                       Sugestões para hoje
                     </p>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="rounded-full border border-brand-cyan/25 bg-black/25 px-2 py-0.5 text-xs text-brand-cyan">
                       Pelo restante
                     </span>
                   </div>
@@ -1180,7 +1203,7 @@ export function MealModal() {
                             )}`,
                           })
                         }
-                        className="rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                        className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-left text-sm transition-colors hover:border-brand-cyan/35 hover:bg-brand-cyan/10"
                       >
                         <span className="block truncate font-medium">
                           {suggestion.food.descricao}
@@ -1204,31 +1227,31 @@ export function MealModal() {
                 onValueChange={(value) => setShortcutTab(value as ShortcutTab)}
                 className="gap-3"
               >
-                <TabsList className="w-full">
+                <TabsList className="w-full border border-white/10 bg-black/25">
                   <TabsTrigger
                     value="smart"
-                    className="flex-1"
+                    className="flex-1 data-[state=active]:border data-[state=active]:border-brand-purple/35 data-[state=active]:bg-brand-purple/15 data-[state=active]:text-white"
                     disabled={smartMeals.length === 0}
                   >
                     Agora
                   </TabsTrigger>
                   <TabsTrigger
                     value="recent"
-                    className="flex-1"
+                    className="flex-1 data-[state=active]:border data-[state=active]:border-brand-blue/35 data-[state=active]:bg-brand-blue/15 data-[state=active]:text-white"
                     disabled={recentMeals.length === 0}
                   >
                     Recentes
                   </TabsTrigger>
                   <TabsTrigger
                     value="favorite"
-                    className="flex-1"
+                    className="flex-1 data-[state=active]:border data-[state=active]:border-brand-cyan/35 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-white"
                     disabled={favoriteFoods.length === 0}
                   >
                     Favoritos
                   </TabsTrigger>
                   <TabsTrigger
                     value="combo"
-                    className="flex-1"
+                    className="flex-1 data-[state=active]:border data-[state=active]:border-brand-green/35 data-[state=active]:bg-brand-green/15 data-[state=active]:text-white"
                     disabled={comboFoods.length === 0}
                   >
                     Combos
@@ -1262,7 +1285,7 @@ export function MealModal() {
                         key={food.id}
                         type="button"
                         onClick={() => handleSelectFood(food)}
-                        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                        className="rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2 text-left text-sm transition-colors hover:border-brand-cyan/40 hover:bg-brand-cyan/10"
                       >
                         <span className="block truncate font-medium">
                           {food.descricao}
@@ -1284,7 +1307,7 @@ export function MealModal() {
                         key={food.id}
                         type="button"
                         onClick={() => handleSelectFood(food)}
-                        className="rounded-lg border border-cyan/30 bg-cyan/5 px-3 py-2 text-left text-sm transition-colors hover:bg-cyan/10"
+                        className="rounded-lg border border-brand-green/30 bg-brand-green/10 px-3 py-2 text-left text-sm transition-colors hover:border-brand-green/50 hover:bg-brand-green/15"
                       >
                         <span className="block truncate font-medium">
                           {food.descricao}
@@ -1309,12 +1332,12 @@ export function MealModal() {
             )}
 
             {!isSearching && sortedResults.length > 0 && (
-              <ul className="max-h-40 overflow-y-auto rounded-lg border border-border">
+              <ul className="max-h-40 overflow-y-auto rounded-lg border border-brand-blue/25 bg-brand-blue/5">
                 {sortedResults.map((food) => (
                   <li key={food.id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-brand-blue/10"
                       onClick={() => handleSelectFood(food)}
                     >
                       <span className="min-w-0 truncate">{food.descricao}</span>
@@ -1330,7 +1353,7 @@ export function MealModal() {
             )}
 
             {showEmptySearchHint && !showInlineCreate && (
-              <div className="rounded-lg border border-dashed border-border px-3 py-3">
+              <div className="rounded-lg border border-dashed border-brand-magenta/35 bg-brand-magenta/5 px-3 py-3">
                 <p className="text-sm text-muted-foreground">
                   Não encontrou &ldquo;{trimmedQuery}&rdquo;?
                 </p>
@@ -1348,7 +1371,7 @@ export function MealModal() {
             )}
 
             {showInlineCreate && (
-              <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+              <div className="rounded-lg border border-brand-purple/30 bg-brand-purple/10 p-3">
                 <p className="text-sm font-medium">Novo alimento</p>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="sm:col-span-2">
@@ -1519,7 +1542,7 @@ export function MealModal() {
             )}
 
             {pendingFood && (
-              <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+              <div className="rounded-lg border border-brand-cyan/35 bg-brand-cyan/10 p-3 shadow-sm shadow-brand-cyan/10">
                 <p className="text-sm font-medium">{pendingFood.descricao}</p>
                 {pendingQtdHint ? (
                   <p className="mt-1 text-xs text-brand-cyan">
@@ -1602,8 +1625,8 @@ export function MealModal() {
                       className={cn(
                         "rounded-lg border px-3 py-3 text-left text-sm transition-colors",
                         isSelected
-                          ? "border-cyan/50 bg-cyan/10"
-                          : "border-border hover:bg-muted/50"
+                          ? "border-brand-green/50 bg-brand-green/15 text-white"
+                          : "border-brand-green/20 bg-brand-green/5 hover:border-brand-green/35 hover:bg-brand-green/10"
                       )}
                     >
                       <p className="font-medium">{preset.label}</p>
@@ -1618,7 +1641,7 @@ export function MealModal() {
             </section>
           )}
 
-          <section className="flex min-h-0 flex-1 flex-col gap-3">
+          <section className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-medium">Carrinho</h3>
@@ -1652,7 +1675,7 @@ export function MealModal() {
             </div>
 
             {hasUnsavedAiItems ? (
-              <label className="flex items-start gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-3 py-2 text-sm">
+              <label className="flex items-start gap-2 rounded-lg border border-brand-purple/30 bg-brand-purple/10 px-3 py-2 text-sm">
                 <Checkbox
                   className="mt-0.5"
                   checked={saveAiItemsToBank}
@@ -1686,8 +1709,8 @@ export function MealModal() {
             ) : null}
 
             {cart.length === 0 ? (
-              <div className="rounded-lg border border-dashed px-3 py-5 text-center">
-                <p className="text-sm font-medium text-foreground">
+              <div className="rounded-lg border border-dashed border-brand-blue/30 bg-brand-blue/5 px-3 py-5 text-center">
+                <p className="text-sm font-medium text-white">
                   Carrinho vazio
                 </p>
                 <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
@@ -1709,7 +1732,7 @@ export function MealModal() {
                         "rounded-lg border px-3 py-2.5 transition-colors",
                         isRecentlyAdded
                           ? "border-brand-cyan/50 bg-brand-cyan/10"
-                          : "border-border"
+                          : "border-white/10 bg-black/25"
                       )}
                     >
                       <div className="flex items-start gap-2">
@@ -1735,7 +1758,7 @@ export function MealModal() {
 
                       <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                         {isSupplement ? (
-                          <span className="rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                          <span className="rounded-md border border-brand-green/25 bg-brand-green/10 px-2 py-1 text-xs text-brand-green">
                             1 dose
                           </span>
                         ) : (
@@ -1830,7 +1853,7 @@ export function MealModal() {
                   />
                 </div>
 
-                <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+                <div className="rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2 text-xs text-muted-foreground">
                   {Math.round(totals.calorias)} kcal · P{" "}
                   {Math.round(totals.proteinas)}g · C{" "}
                   {Math.round(totals.carboidratos)}g · G{" "}
@@ -1874,8 +1897,8 @@ export function MealModal() {
           )}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:mr-auto sm:w-auto">
+        <DialogFooter className="shrink-0 flex-col gap-3 border-t border-brand-cyan/20 bg-black/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="w-full rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2 text-xs text-slate-300 sm:mr-auto sm:w-auto">
             <span className="font-medium text-foreground">
               {Math.round(totals.calorias)} kcal
             </span>{" "}
