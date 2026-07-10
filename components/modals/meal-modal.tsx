@@ -29,7 +29,7 @@ import {
 } from "@/components/modals/meal-modal-ai-panel"
 import { useMealModal, useQuickModals } from "@/components/modals/quick-modals-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createFood, getFrequentFoods, searchFoods } from "@/lib/actions/foods"
+import { createFood, getFoodShortcuts, searchFoods } from "@/lib/actions/foods"
 import { logMealAnalysis } from "@/lib/actions/meal-analysis"
 import {
   createMeal,
@@ -135,6 +135,18 @@ function normalizeFoodUnit(value: string): FoodReferenceUnit {
   return "g"
 }
 
+function normalizeFoodCategory(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+}
+
+function isComboFood(food: FoodSearchResult) {
+  return normalizeFoodCategory(food.categoria) === "combo"
+}
+
 function cartItemToFoodInput(item: CartItem, categoria: string): FoodFormInput {
   const macros = calcItemMacros(item)
 
@@ -210,11 +222,11 @@ export function MealModal() {
     [cart]
   )
   const comboFoods = React.useMemo(
-    () => quickFoods.filter((food) => food.categoria === "Combo"),
+    () => quickFoods.filter(isComboFood),
     [quickFoods]
   )
   const favoriteFoods = React.useMemo(
-    () => quickFoods.filter((food) => food.categoria !== "Combo"),
+    () => quickFoods.filter((food) => !isComboFood(food)),
     [quickFoods]
   )
   const hasShortcuts =
@@ -235,7 +247,7 @@ export function MealModal() {
   React.useEffect(() => {
     if (!open) return
 
-    void getFrequentFoods(8).then(setQuickFoods)
+    void getFoodShortcuts(8, 8).then(setQuickFoods)
     void getRecentMealTemplates(5).then(setRecentMeals)
   }, [open])
 
@@ -412,11 +424,14 @@ export function MealModal() {
         return
       }
 
-      setQuickFoods((prev) => [result.food, ...prev.filter((food) => food.id !== result.food.id)].slice(0, 8))
+      setQuickFoods((prev) =>
+        [result.food, ...prev.filter((food) => food.id !== result.food.id)].slice(0, 16)
+      )
       setComboHint("Combo salvo no banco de alimentos.")
       setComboDialogOpen(false)
       setComboName("")
       setShortcutTab("combo")
+      router.refresh()
     })
   }
 

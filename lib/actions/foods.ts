@@ -120,6 +120,49 @@ export async function getFrequentFoods(limit = 8): Promise<FoodSearchResult[]> {
   }
 }
 
+export async function getFoodShortcuts(
+  limit = 8,
+  comboLimit = 8
+): Promise<FoodSearchResult[]> {
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 12)
+  const safeComboLimit = Math.min(Math.max(1, Math.floor(comboLimit)), 12)
+  const supabase = await createServerSupabase()
+  if (!supabase) return []
+
+  try {
+    const selectFields =
+      "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+    const [frequentResult, comboResult] = await Promise.all([
+      supabase
+        .from("alimentos_favoritos")
+        .select(selectFields)
+        .order("vezes_usado", { ascending: false })
+        .order("descricao", { ascending: true })
+        .limit(safeLimit),
+      supabase
+        .from("alimentos_favoritos")
+        .select(selectFields)
+        .ilike("categoria", "combo")
+        .order("descricao", { ascending: true })
+        .limit(safeComboLimit),
+    ])
+
+    if (frequentResult.error) throw frequentResult.error
+    if (comboResult.error) throw comboResult.error
+
+    const byId = new Map<number, FoodSearchResult>()
+    for (const row of [...(comboResult.data ?? []), ...(frequentResult.data ?? [])]) {
+      const food = mapFoodSearchRow(row)
+      byId.set(food.id, food)
+    }
+
+    return Array.from(byId.values())
+  } catch (error) {
+    console.error("[getFoodShortcuts]", error)
+    return []
+  }
+}
+
 export async function createFood(data: FoodFormInput) {
   const validation = validateFoodInput(data)
   if (!validation.ok) {
