@@ -157,6 +157,13 @@ const MACRO_SUMMARY_ACCENTS = [
   "border-brand-magenta/35 bg-brand-magenta/10",
 ] as const
 
+const INLINE_PORTION_PRESETS = [
+  { label: "100g", qtdReferencia: 100, unidadeReferencia: "g" },
+  { label: "1 und", qtdReferencia: 1, unidadeReferencia: "und" },
+  { label: "1 scoop", qtdReferencia: 30, unidadeReferencia: "g" },
+  { label: "1 colher", qtdReferencia: 15, unidadeReferencia: "g" },
+] as const
+
 function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
 }
@@ -824,6 +831,18 @@ export function MealModal() {
     setInlineHint(null)
   }
 
+  function applyInlinePortionPreset(
+    preset: (typeof INLINE_PORTION_PRESETS)[number]
+  ) {
+    setInlineForm((current) => ({
+      ...current,
+      qtdReferencia: preset.qtdReferencia,
+      unidadeReferencia: preset.unidadeReferencia,
+    }))
+    setInlineHint(`Porção definida como ${preset.label}.`)
+    setError(null)
+  }
+
   function handleAddAiItems(payload: {
     items: MealAnalysisItem[]
     meta: MealAiAnalysisMeta
@@ -1371,125 +1390,21 @@ export function MealModal() {
             )}
 
             {showInlineCreate && (
-              <div className="rounded-lg border border-brand-purple/30 bg-brand-purple/10 p-3">
-                <p className="text-sm font-medium">Novo alimento</p>
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <Label htmlFor="inline-descricao">Nome</Label>
-                    <Input
-                      id="inline-descricao"
-                      value={inlineForm.descricao}
-                      onChange={(event) =>
-                        updateInlineField("descricao", event.target.value)
-                      }
-                    />
-                  </div>
+              <div className="rounded-lg border border-brand-purple/35 bg-gradient-to-br from-brand-purple/15 via-purple-950/20 to-brand-cyan/10 p-3 shadow-sm shadow-brand-purple/10">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <Label htmlFor="inline-qtd">Porção de referência</Label>
-                    <Input
-                      id="inline-qtd"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={inlineForm.qtdReferencia}
-                      onChange={(event) =>
-                        updateInlineField(
-                          "qtdReferencia",
-                          Number(event.target.value.replace(",", "."))
-                        )
-                      }
-                    />
+                    <p className="text-sm font-medium text-white">
+                      Novo alimento
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Informe o nome e deixe a IA estimar os macros para revisar.
+                    </p>
                   </div>
-                  <div>
-                    <Label htmlFor="inline-unidade">Unidade</Label>
-                    <Select
-                      value={inlineForm.unidadeReferencia}
-                      onValueChange={(value) =>
-                        updateInlineField("unidadeReferencia", value)
-                      }
-                    >
-                      <SelectTrigger id="inline-unidade" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FOOD_REFERENCE_UNITS.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="inline-kcal">Calorias</Label>
-                    <Input
-                      id="inline-kcal"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={inlineForm.calorias}
-                      onChange={(event) =>
-                        updateInlineField(
-                          "calorias",
-                          Number(event.target.value.replace(",", "."))
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="inline-prot">Proteína (g)</Label>
-                    <Input
-                      id="inline-prot"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={inlineForm.proteinas}
-                      onChange={(event) =>
-                        updateInlineField(
-                          "proteinas",
-                          Number(event.target.value.replace(",", "."))
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="inline-carb">Carboidrato (g)</Label>
-                    <Input
-                      id="inline-carb"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={inlineForm.carboidratos}
-                      onChange={(event) =>
-                        updateInlineField(
-                          "carboidratos",
-                          Number(event.target.value.replace(",", "."))
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="inline-gord">Gordura (g)</Label>
-                    <Input
-                      id="inline-gord"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={inlineForm.gorduras}
-                      onChange={(event) =>
-                        updateInlineField(
-                          "gorduras",
-                          Number(event.target.value.replace(",", "."))
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
+                    className="border-brand-purple/35 bg-brand-purple/10 text-brand-purple hover:bg-brand-purple/15"
                     onClick={handleAnalyzeInlineFood}
                     disabled={
                       isAnalyzingInlineFood ||
@@ -1509,9 +1424,199 @@ export function MealModal() {
                       </>
                     )}
                   </Button>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="inline-descricao">Nome</Label>
+                    <Input
+                      id="inline-descricao"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.descricao}
+                      onChange={(event) =>
+                        updateInlineField("descricao", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-qtd">Porção de referência</Label>
+                    <Input
+                      id="inline-qtd"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.qtdReferencia}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "qtdReferencia",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-unidade">Unidade</Label>
+                    <Select
+                      value={inlineForm.unidadeReferencia}
+                      onValueChange={(value) =>
+                        updateInlineField("unidadeReferencia", value)
+                      }
+                    >
+                      <SelectTrigger
+                        id="inline-unidade"
+                        className="w-full border-white/10 bg-black/30"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FOOD_REFERENCE_UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-kcal">Calorias</Label>
+                    <Input
+                      id="inline-kcal"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.calorias}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "calorias",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-prot">Proteína (g)</Label>
+                    <Input
+                      id="inline-prot"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.proteinas}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "proteinas",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-carb">Carboidrato (g)</Label>
+                    <Input
+                      id="inline-carb"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.carboidratos}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "carboidratos",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inline-gord">Gordura (g)</Label>
+                    <Input
+                      id="inline-gord"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="border-white/10 bg-black/30"
+                      value={inlineForm.gorduras}
+                      onChange={(event) =>
+                        updateInlineField(
+                          "gorduras",
+                          Number(event.target.value.replace(",", "."))
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <p className="mb-2 text-xs font-medium text-slate-300">
+                    Porções rápidas
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {INLINE_PORTION_PRESETS.map((preset) => {
+                      const isActive =
+                        inlineForm.qtdReferencia === preset.qtdReferencia &&
+                        inlineForm.unidadeReferencia ===
+                          preset.unidadeReferencia
+
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => applyInlinePortionPreset(preset)}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                            isActive
+                              ? "border-brand-cyan/45 bg-brand-cyan/15 text-brand-cyan"
+                              : "border-white/10 bg-black/25 text-muted-foreground hover:border-brand-cyan/30 hover:bg-brand-cyan/10 hover:text-brand-cyan"
+                          )}
+                        >
+                          {preset.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-2 py-1.5">
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
+                      Kcal
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      {Math.round(inlineForm.calorias)}
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-brand-green/25 bg-brand-green/10 px-2 py-1.5">
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
+                      Prot
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      {roundMacro(inlineForm.proteinas)}g
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-brand-blue/25 bg-brand-blue/10 px-2 py-1.5">
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
+                      Carb
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      {roundMacro(inlineForm.carboidratos)}g
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-brand-magenta/25 bg-brand-magenta/10 px-2 py-1.5">
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
+                      Gord
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      {roundMacro(inlineForm.gorduras)}g
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Button
                     type="button"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={handleCreateInlineFood}
                     disabled={isCreatingFood || isAnalyzingInlineFood}
                   >
@@ -1528,6 +1633,7 @@ export function MealModal() {
                     type="button"
                     size="sm"
                     variant="ghost"
+                    className="w-full sm:w-auto"
                     onClick={() => setShowInlineCreate(false)}
                   >
                     Cancelar
