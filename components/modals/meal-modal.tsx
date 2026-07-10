@@ -395,6 +395,22 @@ function cloneCartItem(item: CartItem): CartItem {
   }
 }
 
+function formatMealTemplateItems(meal: RecentMealTemplate) {
+  const names = meal.cart
+    .slice(0, 3)
+    .map((item) => item.nome.trim())
+    .filter(Boolean)
+
+  if (names.length === 0) return meal.descricao
+
+  const remaining = meal.cart.length - names.length
+  return remaining > 0 ? `${names.join(", ")} +${remaining}` : names.join(", ")
+}
+
+function formatMealTemplateCount(meal: RecentMealTemplate) {
+  return `${meal.cart.length} ${meal.cart.length === 1 ? "item" : "itens"}`
+}
+
 export function MealModal() {
   const router = useRouter()
   const { open, setOpen } = useMealModal()
@@ -667,30 +683,42 @@ export function MealModal() {
     setCart((prev) => [...prev, ...meal.cart.map(cloneCartItem)])
     setCategory(meal.categoria)
     setError(null)
-    setComboHint(null)
+    setComboHint(`${meal.categoria} repetida no carrinho.`)
   }
 
-  function renderMealTemplateButton(meal: RecentMealTemplate) {
+  function renderMealTemplateButton(
+    meal: RecentMealTemplate,
+    options: { compact?: boolean } = {}
+  ) {
     return (
       <button
         key={meal.id}
         type="button"
         onClick={() => handleAddRecentMeal(meal)}
-        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+        className={cn(
+          "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+          options.compact
+            ? "border-border hover:bg-muted/50"
+            : "border-cyan/30 bg-cyan/5 hover:bg-cyan/10"
+        )}
       >
         <span className="flex items-center justify-between gap-2">
           <span className="min-w-0 truncate font-medium">
             {meal.categoria}
           </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {meal.hora}
+          <span className="shrink-0 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            Repetir
           </span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          {meal.descricao}
+          {formatMealTemplateItems(meal)}
         </span>
-        <span className="mt-1 block text-xs text-muted-foreground">
-          {Math.round(meal.calorias)} kcal · P {Math.round(meal.proteinas)}g
+        <span className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>{meal.hora}</span>
+          <span>
+            {formatMealTemplateCount(meal)} · {Math.round(meal.calorias)} kcal ·
+            P {Math.round(meal.proteinas)}g
+          </span>
         </span>
       </button>
     )
@@ -1126,14 +1154,22 @@ export function MealModal() {
                 </TabsList>
 
                 <TabsContent value="smart" className="mt-0">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Refeições desse horário que você costuma repetir.
+                  </p>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {smartMeals.map((meal) => renderMealTemplateButton(meal))}
                   </div>
                 </TabsContent>
 
                 <TabsContent value="recent" className="mt-0">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Toque para trazer todos os itens para o carrinho.
+                  </p>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {recentMeals.map((meal) => renderMealTemplateButton(meal))}
+                    {recentMeals.map((meal) =>
+                      renderMealTemplateButton(meal, { compact: true })
+                    )}
                   </div>
                 </TabsContent>
 
