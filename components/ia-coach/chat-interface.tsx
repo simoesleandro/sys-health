@@ -18,6 +18,29 @@ import {
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
 import { cn } from "@/lib/utils"
 
+const QUICK_PROMPTS = [
+  {
+    label: "Analisar meu dia",
+    prompt:
+      "Analise meu dia de hoje e me diga o que mais impacta minha energia, fome e recuperação.",
+  },
+  {
+    label: "Ajustar amanhã",
+    prompt:
+      "Com base nos meus dados recentes, sugira ajustes simples para melhorar meu dia de amanhã.",
+  },
+  {
+    label: "Nutrição agora",
+    prompt:
+      "Olhe minha alimentação recente e sugira a próxima refeição com foco nos meus macros.",
+  },
+  {
+    label: "Sono e treino",
+    prompt:
+      "Compare meu sono, recuperação e treino recente e indique o melhor foco para hoje.",
+  },
+] as const
+
 export function ChatInterface({
   className,
   initialMessages = [],
@@ -75,13 +98,17 @@ export function ChatInterface({
     void logCoachAnalysis({ pergunta, resposta })
   }, [isBusy, messages])
 
+  function sendCoachMessage(text: string) {
+    const trimmedText = text.trim()
+    if (!trimmedText || isBusy) return
+
+    sendMessage({ text: trimmedText })
+    setInput("")
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const text = input.trim()
-    if (!text || isBusy) return
-
-    sendMessage({ text })
-    setInput("")
+    sendCoachMessage(input)
   }
 
   return (
@@ -136,6 +163,22 @@ export function ChatInterface({
             {errorMessage}
           </div>
         ) : null}
+      </div>
+
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-border px-4 py-2">
+        {QUICK_PROMPTS.map((quickPrompt) => (
+          <Button
+            key={quickPrompt.label}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            onClick={() => sendCoachMessage(quickPrompt.prompt)}
+            className="h-8 shrink-0 rounded-full border-border/80 bg-background/70 px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            {quickPrompt.label}
+          </Button>
+        ))}
       </div>
 
       <form
