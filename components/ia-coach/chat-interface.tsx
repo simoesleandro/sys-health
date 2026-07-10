@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
-import { Eraser, Loader2, Send, Square } from "lucide-react"
+import { Eraser, History, Loader2, Send, Square } from "lucide-react"
 
 import { CoachMessage } from "@/components/ia-coach/coach-message"
 import { Button } from "@/components/ui/button"
@@ -74,6 +74,8 @@ export function ChatInterface({
 
   const isBusy = status === "submitted" || status === "streaming"
   const errorMessage = formatCoachErrorMessage(error)
+  const hasSavedHistory = initialMessages.length > 0
+  const canRestoreHistory = hasSavedHistory && messages.length === 0
 
   const lastMessage = messages.at(-1)
   const awaitingFirstToken =
@@ -120,12 +122,20 @@ export function ChatInterface({
     sendCoachMessage(input)
   }
 
-  function handleNewConversation() {
-    if (isBusy || messages.length === 0) return
+  function handleHistoryToggle() {
+    if (isBusy) return
 
     clearError()
     setInput("")
-    setMessages([])
+
+    if (canRestoreHistory) {
+      setMessages(initialMessages as unknown as UIMessage[])
+      return
+    }
+
+    if (messages.length > 0) {
+      setMessages([])
+    }
   }
 
   return (
@@ -187,13 +197,19 @@ export function ChatInterface({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={isBusy || messages.length === 0}
-          onClick={handleNewConversation}
-          title="Nova conversa"
+          disabled={isBusy || (!hasSavedHistory && messages.length === 0)}
+          onClick={handleHistoryToggle}
+          title={canRestoreHistory ? "Ver histórico" : "Nova conversa"}
           className="h-8 shrink-0 rounded-full px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          <Eraser className="size-3.5" />
-          <span className="hidden sm:inline">Nova conversa</span>
+          {canRestoreHistory ? (
+            <History className="size-3.5" />
+          ) : (
+            <Eraser className="size-3.5" />
+          )}
+          <span className="hidden sm:inline">
+            {canRestoreHistory ? "Ver histórico" : "Nova conversa"}
+          </span>
         </Button>
 
         {QUICK_PROMPTS.map((quickPrompt) => (
