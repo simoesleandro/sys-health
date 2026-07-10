@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
 
 import { FoodFormModal } from "@/components/foods/food-form-modal"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header"
 import { Input } from "@/components/ui/input"
 import { NeonCard } from "@/components/ui/neon-card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { deleteFood } from "@/lib/actions/foods"
 import {
   formatFoodPortion,
@@ -38,9 +40,16 @@ function normalizeSearchTerm(value: string) {
     .replace(/\p{M}/gu, "")
 }
 
+function isComboFood(food: FavoriteFood) {
+  return normalizeSearchTerm(food.categoria) === "combo"
+}
+
+type FoodTypeFilter = "all" | "foods" | "combos"
+
 export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   const router = useRouter()
   const [search, setSearch] = React.useState("")
+  const [typeFilter, setTypeFilter] = React.useState<FoodTypeFilter>("all")
   const [modalOpen, setModalOpen] = React.useState(false)
   const [editingFood, setEditingFood] = React.useState<FavoriteFood | null>(
     null
@@ -63,12 +72,23 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
 
   const filteredFoods = React.useMemo(() => {
     const term = normalizeSearchTerm(search)
-    if (!term) return foods
 
-    return foods.filter((food) =>
-      normalizeSearchTerm(food.descricao).includes(term)
-    )
-  }, [foods, search])
+    return foods.filter((food) => {
+      const isCombo = isComboFood(food)
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "combos" && isCombo) ||
+        (typeFilter === "foods" && !isCombo)
+      const matchesSearch =
+        !term || normalizeSearchTerm(food.descricao).includes(term)
+
+      return matchesType && matchesSearch
+    })
+  }, [foods, search, typeFilter])
+
+  const comboCount = foods.filter(isComboFood).length
+  const foodCount = foods.length - comboCount
+  const hasSearch = search.trim().length > 0
 
   function handleDelete(food: FavoriteFood) {
     if (
@@ -105,8 +125,8 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
       </PageHeader>
 
       <NeonCard accent="orange" className="overflow-hidden">
-        <div className="border-b border-zinc-800/50 px-4 py-3">
-          <div className="relative max-w-md">
+        <div className="flex flex-col gap-3 border-b border-zinc-800/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -116,6 +136,33 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
               aria-label="Buscar alimento"
             />
           </div>
+
+          <Tabs
+            value={typeFilter}
+            onValueChange={(value) => setTypeFilter(value as FoodTypeFilter)}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="w-full sm:w-fit">
+              <TabsTrigger value="all" className="flex-1 sm:flex-none">
+                Todos
+                <span className="text-xs text-muted-foreground">
+                  {foods.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="foods" className="flex-1 sm:flex-none">
+                Alimentos
+                <span className="text-xs text-muted-foreground">
+                  {foodCount}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="combos" className="flex-1 sm:flex-none">
+                Combos
+                <span className="text-xs text-muted-foreground">
+                  {comboCount}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {foods.length === 0 ? (
@@ -125,7 +172,9 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
           </p>
         ) : filteredFoods.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
-            Nenhum alimento encontrado para &quot;{search.trim()}&quot;.
+            {hasSearch
+              ? `Nenhum item encontrado para "${search.trim()}".`
+              : "Nenhum item encontrado nesse filtro."}
           </p>
         ) : (
           <Table>
@@ -144,7 +193,17 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
               {filteredFoods.map((food) => (
                 <TableRow key={food.id}>
                   <TableCell className="max-w-[200px] truncate font-medium">
-                    {food.descricao}
+                    <span className="inline-flex max-w-full items-center gap-2">
+                      <span className="truncate">{food.descricao}</span>
+                      {isComboFood(food) ? (
+                        <Badge
+                          variant="outline"
+                          className="border-brand-cyan/30 text-brand-cyan"
+                        >
+                          Combo
+                        </Badge>
+                      ) : null}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {formatFoodPortion(
