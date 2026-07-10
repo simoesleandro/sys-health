@@ -80,6 +80,7 @@ function resetModalState(
     setCart: (v: CartItem[]) => void
     setPendingFood: (v: FoodSearchResult | null) => void
     setPendingQtd: (v: string) => void
+    setPendingQtdHint: (v: string | null) => void
     setCategory: (v: string) => void
     setError: (v: string | null) => void
     setShowInlineCreate: (v: boolean) => void
@@ -103,6 +104,7 @@ function resetModalState(
   setters.setCart([])
   setters.setPendingFood(null)
   setters.setPendingQtd("")
+  setters.setPendingQtdHint(null)
   setters.setCategory(suggestMealCategoryByHour())
   setters.setError(null)
   setters.setShowInlineCreate(false)
@@ -174,6 +176,28 @@ function formatRemainingMacro(value: number, unit: string) {
 
 function roundMacro(value: number) {
   return Math.round(value * 10) / 10
+}
+
+function roundSuggestedQuantity(value: number, unit: string) {
+  if (unit === "und") return Math.max(1, Math.round(value))
+  if (value >= 20) return Math.max(1, Math.round(value / 5) * 5)
+  return Math.max(1, Math.round(value * 10) / 10)
+}
+
+function clampSuggestedQuantity(food: FoodSearchResult, value: number) {
+  const unit = normalizeFoodUnit(food.unidadeReferencia)
+  if (unit === "und") {
+    return Math.min(
+      roundSuggestedQuantity(value, unit),
+      isComboFood(food) ? 2 : 4
+    )
+  }
+
+  const min = Math.max(1, food.qtdReferencia * 0.5)
+  const max = Math.max(min, food.qtdReferencia * 3)
+  const rounded = roundSuggestedQuantity(value, unit)
+
+  return Math.min(Math.max(rounded, min), max)
 }
 
 function normalizeFoodCategory(value: string) {
@@ -300,6 +324,48 @@ function getMacroFitLabel(
   return `${Math.round(food.calorias)} kcal`
 }
 
+function getSuggestedFoodQuantity(
+  food: FoodSearchResult,
+  remaining: NonNullable<MealModalMacroRemaining>
+) {
+  const candidates = [
+    {
+      remaining: Math.max(remaining.proteinas, 0),
+      perReference: food.proteinas,
+      priority: 5,
+    },
+    {
+      remaining: Math.max(remaining.carboidratos, 0),
+      perReference: food.carboidratos,
+      priority: 2.4,
+    },
+    {
+      remaining: Math.max(remaining.gorduras, 0),
+      perReference: food.gorduras,
+      priority: 1.8,
+    },
+    {
+      remaining: Math.max(remaining.calorias, 0),
+      perReference: food.calorias,
+      priority: 0.15,
+    },
+  ]
+    .filter((item) => item.remaining > 0 && item.perReference > 0)
+    .sort(
+      (a, b) =>
+        Math.min(b.remaining, b.perReference) * b.priority -
+        Math.min(a.remaining, a.perReference) * a.priority
+    )
+
+  const target = candidates[0]
+  if (!target) return food.qtdReferencia
+
+  return clampSuggestedQuantity(
+    food,
+    (target.remaining / target.perReference) * food.qtdReferencia
+  )
+}
+
 function indexRecentFoodPortions(portions: RecentFoodPortion[]) {
   return portions.reduce<Record<number, RecentFoodPortion>>((acc, portion) => {
     acc[portion.foodId] = portion
@@ -346,6 +412,7 @@ export function MealModal() {
     null
   )
   const [pendingQtd, setPendingQtd] = React.useState("")
+  const [pendingQtdHint, setPendingQtdHint] = React.useState<string | null>(null)
   const [category, setCategory] = React.useState<string>(
     suggestMealCategoryByHour()
   )
@@ -442,6 +509,7 @@ export function MealModal() {
       .map((food) => ({
         food,
         label: getMacroFitLabel(food, macroRemaining),
+        suggestedQtd: getSuggestedFoodQuantity(food, macroRemaining),
         score: getMacroFitScore(food, macroRemaining),
       }))
       .filter((item) => item.score > 12)
@@ -531,6 +599,7 @@ export function MealModal() {
         setCart,
         setPendingFood,
         setPendingQtd,
+        setPendingQtdHint,
         setCategory,
         setError,
         setShowInlineCreate,
@@ -553,9 +622,13 @@ export function MealModal() {
     }
   }
 
-  function handleSelectFood(food: FoodSearchResult) {
+  function handleSelectFood(
+    food: FoodSearchResult,
+    options: { qtd?: number; hint?: string } = {}
+  ) {
     const recentPortion = recentFoodPortions[food.id]
     const shouldUseRecentPortion =
+      options.qtd == null &&
       recentPortion &&
       normalizeFoodUnit(recentPortion.unidade) ===
         normalizeFoodUnit(food.unidadeReferencia)
@@ -563,9 +636,11 @@ export function MealModal() {
     setPendingFood(food)
     setPendingQtd(
       formatQuantityInput(
-        shouldUseRecentPortion ? recentPortion.qtd : food.qtdReferencia
+        options.qtd ??
+          (shouldUseRecentPortion ? recentPortion.qtd : food.qtdReferencia)
       )
     )
+    setPendingQtdHint(options.hint ?? null)
     setError(null)
   }
 
@@ -581,6 +656,7 @@ export function MealModal() {
     setCart((prev) => [...prev, foodToCartItem(pendingFood, qtd)])
     setPendingFood(null)
     setPendingQtd("")
+    setPendingQtdHint(null)
     setQuery("")
     setResults([])
     setError(null)
@@ -964,7 +1040,15 @@ export function MealModal() {
                       <button
                         key={suggestion.food.id}
                         type="button"
-                        onClick={() => handleSelectFood(suggestion.food)}
+                        onClick={() =>
+                          handleSelectFood(suggestion.food, {
+                            qtd: suggestion.suggestedQtd,
+                            hint: `Sugestão para hoje: ${formatFoodPortion(
+                              suggestion.suggestedQtd,
+                              suggestion.food.unidadeReferencia
+                            )}`,
+                          })
+                        }
                         className="rounded-lg border border-border/80 bg-background/70 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
                       >
                         <span className="block truncate font-medium">
@@ -972,7 +1056,10 @@ export function MealModal() {
                         </span>
                         <span className="mt-0.5 block text-xs text-muted-foreground">
                           {suggestion.label} ·{" "}
-                          {Math.round(suggestion.food.calorias)} kcal
+                          {formatFoodPortion(
+                            suggestion.suggestedQtd,
+                            suggestion.food.unidadeReferencia
+                          )}
                         </span>
                       </button>
                     ))}
@@ -1295,7 +1382,11 @@ export function MealModal() {
             {pendingFood && (
               <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3">
                 <p className="text-sm font-medium">{pendingFood.descricao}</p>
-                {pendingRecentPortion ? (
+                {pendingQtdHint ? (
+                  <p className="mt-1 text-xs text-brand-cyan">
+                    {pendingQtdHint}
+                  </p>
+                ) : pendingRecentPortion ? (
                   <p className="mt-1 text-xs text-brand-cyan">
                     Última porção:{" "}
                     {formatFoodPortion(
@@ -1330,7 +1421,10 @@ export function MealModal() {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setPendingFood(null)}
+                      onClick={() => {
+                        setPendingFood(null)
+                        setPendingQtdHint(null)
+                      }}
                     >
                       Cancelar
                     </Button>
