@@ -116,7 +116,7 @@ type PendingMealAnalysis = MealAiAnalysisMeta & {
   itens: MealAnalysisItem[]
 }
 
-type ShortcutTab = "recent" | "favorite" | "combo"
+type ShortcutTab = "smart" | "recent" | "favorite" | "combo"
 
 function isSupplementCartItem(item: CartItem) {
   return item.uid.startsWith("supp-")
@@ -145,6 +145,13 @@ function normalizeFoodCategory(value: string) {
 
 function isComboFood(food: FoodSearchResult) {
   return normalizeFoodCategory(food.categoria) === "combo"
+}
+
+function isMealTemplateForCategory(
+  meal: RecentMealTemplate,
+  categoria: string
+) {
+  return normalizeFoodCategory(meal.categoria) === normalizeFoodCategory(categoria)
 }
 
 function cartItemToFoodInput(item: CartItem, categoria: string): FoodFormInput {
@@ -229,15 +236,28 @@ export function MealModal() {
     () => quickFoods.filter((food) => !isComboFood(food)),
     [quickFoods]
   )
+  const smartMeals = React.useMemo(
+    () =>
+      recentMeals
+        .filter((meal) => isMealTemplateForCategory(meal, category))
+        .slice(0, 4),
+    [recentMeals, category]
+  )
   const hasShortcuts =
-    recentMeals.length > 0 || favoriteFoods.length > 0 || comboFoods.length > 0
+    smartMeals.length > 0 ||
+    recentMeals.length > 0 ||
+    favoriteFoods.length > 0 ||
+    comboFoods.length > 0
   const fallbackShortcutTab: ShortcutTab =
-    recentMeals.length > 0
+    smartMeals.length > 0
+      ? "smart"
+      : recentMeals.length > 0
       ? "recent"
       : favoriteFoods.length > 0
         ? "favorite"
         : "combo"
   const activeShortcutTab =
+    (shortcutTab === "smart" && smartMeals.length > 0) ||
     (shortcutTab === "recent" && recentMeals.length > 0) ||
     (shortcutTab === "favorite" && favoriteFoods.length > 0) ||
     (shortcutTab === "combo" && comboFoods.length > 0)
@@ -248,7 +268,7 @@ export function MealModal() {
     if (!open) return
 
     void getFoodShortcuts(8, 8).then(setQuickFoods)
-    void getRecentMealTemplates(5).then(setRecentMeals)
+    void getRecentMealTemplates(10).then(setRecentMeals)
   }, [open])
 
   React.useEffect(() => {
@@ -330,6 +350,32 @@ export function MealModal() {
     setCategory(meal.categoria)
     setError(null)
     setComboHint(null)
+  }
+
+  function renderMealTemplateButton(meal: RecentMealTemplate) {
+    return (
+      <button
+        key={meal.id}
+        type="button"
+        onClick={() => handleAddRecentMeal(meal)}
+        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+      >
+        <span className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate font-medium">
+            {meal.categoria}
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {meal.hora}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          {meal.descricao}
+        </span>
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {Math.round(meal.calorias)} kcal · P {Math.round(meal.proteinas)}g
+        </span>
+      </button>
+    )
   }
 
   function handleRemoveFromCart(uid: string) {
@@ -636,6 +682,13 @@ export function MealModal() {
               >
                 <TabsList className="w-full">
                   <TabsTrigger
+                    value="smart"
+                    className="flex-1"
+                    disabled={smartMeals.length === 0}
+                  >
+                    Agora
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="recent"
                     className="flex-1"
                     disabled={recentMeals.length === 0}
@@ -658,32 +711,15 @@ export function MealModal() {
                   </TabsTrigger>
                 </TabsList>
 
+                <TabsContent value="smart" className="mt-0">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {smartMeals.map((meal) => renderMealTemplateButton(meal))}
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="recent" className="mt-0">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {recentMeals.map((meal) => (
-                      <button
-                        key={meal.id}
-                        type="button"
-                        onClick={() => handleAddRecentMeal(meal)}
-                        className="rounded-lg border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate font-medium">
-                            {meal.categoria}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {meal.hora}
-                          </span>
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {meal.descricao}
-                        </span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {Math.round(meal.calorias)} kcal · P{" "}
-                          {Math.round(meal.proteinas)}g
-                        </span>
-                      </button>
-                    ))}
+                    {recentMeals.map((meal) => renderMealTemplateButton(meal))}
                   </div>
                 </TabsContent>
 
