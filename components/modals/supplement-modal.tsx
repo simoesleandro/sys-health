@@ -112,7 +112,7 @@ export function SupplementModal() {
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Salvando...
+                Salvando…
               </>
             ) : (
               `Registrar ${selected.length} selecionado(s)`

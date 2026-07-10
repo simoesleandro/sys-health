@@ -6,6 +6,7 @@ import { incrementFoodsUsage } from "@/lib/actions/foods"
 import { formatMealTimeBrt, getBrtTodayUtcBounds } from "@/lib/brt-time"
 import type { CartItem, CreateMealInput, UpdateMealInput } from "@/lib/meals"
 import { parseStoredComponentes, storedComponentToCartItem } from "@/lib/meals"
+import { requireAuth } from "@/lib/supabase/auth"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 function revalidateMealPaths() {
@@ -18,15 +19,19 @@ export async function createMeal(data: CreateMealInput) {
     return { success: false as const, error: "Adicione pelo menos um alimento." }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
   try {
-    const { data: row, error } = await supabase
+    const { data: row, error } = await auth.supabase
       .from("refeicoes")
       .insert({
+        user_id: auth.user.id,
         categoria: data.categoria,
         descricao: data.descricao,
         calorias: data.calorias,
@@ -63,13 +68,16 @@ export async function updateMeal(data: UpdateMealInput) {
     return { success: false as const, error: "Adicione pelo menos um alimento." }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("refeicoes")
       .update({
         categoria: data.categoria,
@@ -81,6 +89,7 @@ export async function updateMeal(data: UpdateMealInput) {
         componentes_json: JSON.stringify(data.componentes),
       })
       .eq("id", data.id)
+      .eq("user_id", auth.user.id)
 
     if (error) throw error
 
@@ -101,12 +110,19 @@ export async function deleteMeal(id: number) {
     return { success: false as const, error: "ID inválido." }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
-  const { error } = await supabase.from("refeicoes").delete().eq("id", id)
+  const { error } = await auth.supabase
+    .from("refeicoes")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.user.id)
 
   if (error) {
     console.error("[deleteMeal]", error)

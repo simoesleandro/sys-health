@@ -86,9 +86,11 @@ export function WaterModal() {
             <div className="flex gap-2">
               <Input
                 id="custom-water-ml"
+                name="customWaterMl"
                 type="number"
                 min="1"
                 step="50"
+                inputMode="numeric"
                 value={customMl}
                 onChange={(event) => setCustomMl(event.target.value)}
               />
@@ -113,7 +115,7 @@ export function WaterModal() {
           {isPending && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="size-3 animate-spin" />
-              Salvando...
+              Salvando…
             </p>
           )}
         </DialogFooter>

@@ -388,7 +388,7 @@ export function EditMealModal() {
             {isSaving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Salvando...
+                Salvando…
               </>
             ) : (
               "Salvar alterações"

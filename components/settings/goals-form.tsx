@@ -56,19 +56,21 @@ export function GoalsForm({ initialGoals }: { initialGoals: NutritionGoals }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {FIELDS.map((field) => (
-          <div key={field.key} className="space-y-2">
+          <div key={field.key} className="flex flex-col gap-2">
             <Label htmlFor={field.key}>
               {field.label}
               {field.unit ? ` (${field.unit})` : ""}
             </Label>
             <Input
               id={field.key}
+              name={field.key}
               type="number"
               step={field.step}
               min={0}
+              inputMode="decimal"
               required
               value={goals[field.key]}
               onChange={(event) => updateField(field.key, event.target.value)}

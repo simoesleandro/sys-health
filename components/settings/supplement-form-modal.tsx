@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -101,34 +102,36 @@ export function SupplementFormModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <p className="text-sm text-slate-400">
             Informe só o produto e a marca. Dose, macros, cores e doses por dia
             são preenchidos automaticamente.
           </p>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="nome">Nome do produto</Label>
             <Input
               id="nome"
+              name="nome"
               value={form.nome}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, nome: e.target.value }))
               }
-              placeholder="Ex: Whey Protein Isolado, Creatina, Ômega 3"
+              placeholder="Ex.: Whey Protein Isolado, Creatina, Ômega 3…"
               required
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="marca">Marca</Label>
             <Input
               id="marca"
+              name="marca"
               value={form.marca}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, marca: e.target.value }))
               }
-              placeholder="Ex: Dux, Max Titanium"
+              placeholder="Ex.: Dux, Max Titanium…"
               required
             />
           </div>
@@ -136,7 +139,7 @@ export function SupplementFormModal({
           {preview ? (
             <div className="rounded-lg border border-zinc-800/60 bg-black/30 px-3 py-3 text-sm text-slate-300">
               <p className="font-medium text-white">Pré-visualização automática</p>
-              <ul className="mt-2 space-y-1 text-xs text-slate-400">
+              <ul className="mt-2 flex flex-col gap-1 text-xs text-slate-400">
                 {preview.slots.map((slot) => (
                   <li key={slot.presetId}>
                     {slot.dose} · {slot.calorias} kcal · P {slot.proteinas}g
@@ -151,12 +154,16 @@ export function SupplementFormModal({
             </div>
           ) : null}
 
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
+          <label
+            htmlFor="supplement-active"
+            className="flex items-center gap-2 text-sm text-slate-300"
+          >
+            <Checkbox
+              id="supplement-active"
+              name="ativo"
               checked={form.ativo}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, ativo: e.target.checked }))
+              onCheckedChange={(checked) =>
+                setForm((prev) => ({ ...prev, ativo: checked === true }))
               }
             />
             Ativo no painel de hoje

@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation"
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
 
 import { FoodFormModal } from "@/components/foods/food-form-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -54,6 +64,10 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   const [editingFood, setEditingFood] = React.useState<FavoriteFood | null>(
     null
   )
+  const [foodToDelete, setFoodToDelete] = React.useState<FavoriteFood | null>(
+    null
+  )
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = React.useTransition()
 
   function openCreateModal() {
@@ -90,19 +104,20 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   const foodCount = foods.length - comboCount
   const hasSearch = search.trim().length > 0
 
-  function handleDelete(food: FavoriteFood) {
-    if (
-      !confirm(`Apagar "${food.descricao}"? Esta ação não pode ser desfeita.`)
-    ) {
-      return
-    }
+  function openDeleteDialog(food: FavoriteFood) {
+    setFoodToDelete(food)
+    setDeleteError(null)
+  }
 
+  function handleDelete() {
+    if (!foodToDelete) return
     startDeleteTransition(async () => {
-      const result = await deleteFood(food.id)
+      const result = await deleteFood(foodToDelete.id)
       if (!result.success) {
-        alert(result.error)
+        setDeleteError(result.error)
         return
       }
+      setFoodToDelete(null)
       router.refresh()
     })
   }
@@ -164,6 +179,15 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
             </TabsList>
           </Tabs>
         </div>
+
+        {deleteError ? (
+          <p
+            className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            {deleteError}
+          </p>
+        ) : null}
 
         {foods.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
@@ -240,7 +264,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(food)}
+                        onClick={() => openDeleteDialog(food)}
                         disabled={isDeleting}
                         aria-label={`Apagar ${food.descricao}`}
                       >
@@ -266,7 +290,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             variant="destructive"
-                            onClick={() => handleDelete(food)}
+                            onClick={() => openDeleteDialog(food)}
                           >
                             <Trash2 className="size-4" />
                             Apagar
@@ -288,6 +312,47 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
         food={editingFood}
         onSaved={handleSaved}
       />
+
+      <AlertDialog
+        open={foodToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setFoodToDelete(null)
+            setDeleteError(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar alimento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {foodToDelete
+                ? `"${foodToDelete.descricao}" será removido do banco. Esta ação não pode ser desfeita.`
+                : "Este alimento será removido do banco."}
+            </AlertDialogDescription>
+            {deleteError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                handleDelete()
+              }}
+            >
+              {isDeleting ? "Apagando…" : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

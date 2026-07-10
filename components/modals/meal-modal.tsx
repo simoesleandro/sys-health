@@ -1030,7 +1030,7 @@ export function MealModal() {
                   {isSavingCombo ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      Salvando...
+                      Salvando…
                     </>
                   ) : (
                     <>
@@ -1211,7 +1211,7 @@ export function MealModal() {
             {isSaving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Salvando...
+                Salvando…
               </>
             ) : (
               "Salvar refeição"

@@ -176,16 +176,20 @@ export async function updateFood(id: number, data: FoodFormInput) {
     return { success: false as const, error: validation.error }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("alimentos_favoritos")
       .update(validation.value)
       .eq("id", id)
+      .eq("user_id", auth.user.id)
 
     if (error) throw error
 
@@ -205,15 +209,19 @@ export async function deleteFood(id: number) {
     return { success: false as const, error: "ID inválido." }
   }
 
-  const supabase = await createServerSupabase()
-  if (!supabase) {
-    return { success: false as const, error: "Supabase não configurado." }
+  const auth = await requireAuth()
+  if (auth.error || !auth.supabase || !auth.user) {
+    return {
+      success: false as const,
+      error: auth.error ?? "Sessão inválida. Faça login novamente.",
+    }
   }
 
-  const { error } = await supabase
+  const { error } = await auth.supabase
     .from("alimentos_favoritos")
     .delete()
     .eq("id", id)
+    .eq("user_id", auth.user.id)
 
   if (error) {
     console.error("[deleteFood]", error)
