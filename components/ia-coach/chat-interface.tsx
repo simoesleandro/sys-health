@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
-import { Loader2, Send } from "lucide-react"
+import { Eraser, Loader2, Send } from "lucide-react"
 
 import { CoachMessage } from "@/components/ia-coach/coach-message"
 import { Button } from "@/components/ui/button"
@@ -59,7 +59,8 @@ export function ChatInterface({
     )
   )
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, setMessages, sendMessage, status, error, clearError } =
+    useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     messages: initialMessages as unknown as UIMessage[],
   })
@@ -109,6 +110,14 @@ export function ChatInterface({
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     sendCoachMessage(input)
+  }
+
+  function handleNewConversation() {
+    if (isBusy || messages.length === 0) return
+
+    clearError()
+    setInput("")
+    setMessages([])
   }
 
   return (
@@ -166,6 +175,19 @@ export function ChatInterface({
       </div>
 
       <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-border px-4 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isBusy || messages.length === 0}
+          onClick={handleNewConversation}
+          title="Nova conversa"
+          className="h-8 shrink-0 rounded-full px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+        >
+          <Eraser className="size-3.5" />
+          <span className="hidden sm:inline">Nova conversa</span>
+        </Button>
+
         {QUICK_PROMPTS.map((quickPrompt) => (
           <Button
             key={quickPrompt.label}
