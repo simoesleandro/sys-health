@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
 } from "lucide-react"
 
@@ -118,6 +119,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
 
   const comboCount = foods.filter(isComboFood).length
   const foodCount = foods.length - comboCount
+  const aiFoods = foods.filter((food) => food.origem === "ia")
   const hasSearch = search.trim().length > 0
 
   function openDeleteDialog(food: FavoriteFood) {
@@ -154,6 +156,52 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
           Adicionar Alimento
         </Button>
       </PageHeader>
+
+      {aiFoods.length > 0 ? (
+        <NeonCard accent="purple" className="mb-4 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-brand-purple/20 bg-brand-purple/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand-purple/30 bg-brand-purple/10 text-brand-purple">
+                <Sparkles className="size-4" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Criados com IA
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Revise macros estimados e corrija qualquer valor estranho.
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="w-fit border-brand-purple/30 text-brand-purple"
+            >
+              {aiFoods.length} para revisar
+            </Badge>
+          </div>
+
+          <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+            {aiFoods.slice(0, 4).map((food) => (
+              <button
+                key={food.id}
+                type="button"
+                className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-left transition-colors hover:border-brand-purple/35 hover:bg-brand-purple/10"
+                onClick={() => openEditModal(food)}
+              >
+                <span className="block truncate text-sm font-medium text-white">
+                  {food.descricao}
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {formatMacro(food.calorias)} kcal · P{" "}
+                  {formatMacro(food.proteinas)}g · C{" "}
+                  {formatMacro(food.carboidratos)}g
+                </span>
+              </button>
+            ))}
+          </div>
+        </NeonCard>
+      ) : null}
 
       <NeonCard accent="orange" className="overflow-hidden">
         {feedback ? (
@@ -254,6 +302,14 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                           Combo
                         </Badge>
                       ) : null}
+                      {food.origem === "ia" ? (
+                        <Badge
+                          variant="outline"
+                          className="border-brand-purple/30 text-brand-purple"
+                        >
+                          IA
+                        </Badge>
+                      ) : null}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -337,6 +393,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
         open={modalOpen}
         onOpenChange={setModalOpen}
         food={editingFood}
+        foods={foods}
         onSaved={handleSaved}
       />
 

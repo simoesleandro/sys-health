@@ -23,6 +23,17 @@ export type FoodSearchResult = {
   gorduras: number
   qtdReferencia: number
   unidadeReferencia: string
+  origem: "manual" | "ia"
+  componentes: {
+    nome: string
+    gramas: number
+    unidade: string
+    kcal: number
+    prot: number
+    carb: number
+    gord: number
+    banco_id: number
+  }[]
 }
 
 export type MealComponentPayload = {

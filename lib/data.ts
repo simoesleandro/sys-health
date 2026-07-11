@@ -15,7 +15,7 @@ import {
   formatIaCreatedLabel,
   type IaHistoryEntry,
 } from "@/lib/ia-analyses"
-import type { FavoriteFood } from "@/lib/foods"
+import { parseFoodComboComponents, type FavoriteFood } from "@/lib/foods"
 import type { NutritionGoals } from "@/lib/goals"
 import {
   getBristolLabel,
@@ -829,6 +829,8 @@ function mapFavoriteFoodRow(row: Record<string, unknown>): FavoriteFood {
     gorduras: Number(row.gorduras ?? 0),
     qtdReferencia: Number(row.qtd_referencia ?? 100),
     unidadeReferencia: String(row.unidade_referencia ?? "g"),
+    origem: row.origem === "ia" ? "ia" : "manual",
+    componentes: parseFoodComboComponents(row.componentes_json),
   }
 }
 
@@ -840,7 +842,7 @@ export const getFavoriteFoods = cache(async (): Promise<FavoriteFood[]> => {
     const { data, error } = await supabase
       .from("alimentos_favoritos")
       .select(
-        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia, origem, componentes_json"
       )
       .order("descricao", { ascending: true })
 

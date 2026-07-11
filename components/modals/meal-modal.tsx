@@ -897,6 +897,7 @@ export function MealModal() {
         gorduras: Math.round(totals.gorduras * 10) / 10,
         qtdReferencia: 1,
         unidadeReferencia: "und",
+        componentes: cartToComponentes(cart),
       })
 
       if (!result.success) {
@@ -918,7 +919,7 @@ export function MealModal() {
 
   function handleCreateInlineFood() {
     startCreateFoodTransition(async () => {
-      const result = await createFood(inlineForm)
+      const result = await createFood({ ...inlineForm, origem: "ia" })
       if (!result.success) {
         setError(result.error)
         return
@@ -1021,7 +1022,10 @@ export function MealModal() {
             continue
           }
 
-          const result = await createFood(cartItemToFoodInput(item, category))
+          const result = await createFood({
+            ...cartItemToFoodInput(item, category),
+            origem: "ia",
+          })
           if (!result.success) {
             setError(result.error)
             return

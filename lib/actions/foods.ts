@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import {
   FOOD_REFERENCE_UNITS,
+  parseFoodComboComponents,
   type FoodFormInput,
 } from "@/lib/foods"
 import type { FoodSearchResult } from "@/lib/meals"
@@ -11,7 +12,7 @@ import { requireAuth } from "@/lib/supabase/auth"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 const FOOD_SEARCH_FIELDS =
-  "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+  "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia, origem, componentes_json"
 
 const SEARCH_STOPWORDS = new Set([
   "a",
@@ -73,6 +74,11 @@ function validateFoodInput(data: FoodFormInput) {
       gorduras: data.gorduras,
       qtd_referencia: data.qtdReferencia,
       unidade_referencia: data.unidadeReferencia,
+      origem: data.origem === "ia" ? "ia" : "manual",
+      componentes_json:
+        data.componentes && data.componentes.length > 0
+          ? JSON.stringify(data.componentes)
+          : null,
     },
   }
 }
@@ -94,6 +100,8 @@ function mapFoodSearchRow(row: Record<string, unknown>): FoodSearchResult {
     gorduras: Number(row.gorduras ?? 0),
     qtdReferencia: Number(row.qtd_referencia ?? 100),
     unidadeReferencia: String(row.unidade_referencia ?? "g"),
+    origem: row.origem === "ia" ? "ia" : "manual",
+    componentes: parseFoodComboComponents(row.componentes_json),
   }
 }
 
