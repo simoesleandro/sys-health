@@ -459,7 +459,7 @@ function formatAddedItemsMessage(count: number, source = "carrinho") {
 export function MealModal() {
   const router = useRouter()
   const { open, setOpen } = useMealModal()
-  const { supplementPresets } = useQuickModals()
+  const { supplementPresets, showFeedback } = useQuickModals()
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
   const [quickFoods, setQuickFoods] = React.useState<FoodSearchResult[]>([])
@@ -908,6 +908,7 @@ export function MealModal() {
         [result.food, ...prev.filter((food) => food.id !== result.food.id)].slice(0, 16)
       )
       setComboHint("Combo salvo no banco de alimentos.")
+      showFeedback("Combo salvo no banco de alimentos.")
       setComboDialogOpen(false)
       setComboName("")
       setShortcutTab("combo")
@@ -1062,6 +1063,7 @@ export function MealModal() {
         })
       }
 
+      showFeedback("Refeição salva.")
       handleOpenChange(false)
       router.refresh()
     })

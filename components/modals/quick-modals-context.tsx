@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CheckCircle2 } from "lucide-react"
 
 import type { MeasurementInput } from "@/lib/biometry"
 import { fetchTodayMealsForPicker } from "@/lib/actions/meals"
@@ -31,6 +32,7 @@ type QuickModalsContextValue = {
   todayMeasurementForm: MeasurementInput
   nutritionGoals: NutritionGoals
   supplementPresets: SupplementPreset[]
+  showFeedback: (message: string) => void
 }
 
 const QuickModalsContext = React.createContext<QuickModalsContextValue | null>(
@@ -55,6 +57,18 @@ export function QuickModalsProvider({
   const [editMealOpen, setEditMealOpenState] = React.useState(false)
   const [editMealId, setEditMealId] = React.useState<number | null>(null)
   const [editMealsPickerOpen, setEditMealsPickerOpen] = React.useState(false)
+  const [feedback, setFeedback] = React.useState<string | null>(null)
+
+  const showFeedback = React.useCallback((message: string) => {
+    setFeedback(message)
+  }, [])
+
+  React.useEffect(() => {
+    if (!feedback) return
+
+    const timer = window.setTimeout(() => setFeedback(null), 3600)
+    return () => window.clearTimeout(timer)
+  }, [feedback])
 
   const setEditMealOpen = React.useCallback((open: boolean) => {
     setEditMealOpenState(open)
@@ -101,6 +115,7 @@ export function QuickModalsProvider({
       todayMeasurementForm,
       nutritionGoals,
       supplementPresets,
+      showFeedback,
     }),
     [
       mealOpen,
@@ -116,12 +131,25 @@ export function QuickModalsProvider({
       todayMeasurementForm,
       nutritionGoals,
       supplementPresets,
+      showFeedback,
     ]
   )
 
   return (
     <QuickModalsContext.Provider value={value}>
       {children}
+      {feedback ? (
+        <div
+          className="fixed inset-x-3 bottom-4 z-50 mx-auto flex max-w-sm items-center gap-2 rounded-full border border-brand-cyan/30 bg-zinc-950/95 px-3 py-2 text-sm text-white shadow-2xl shadow-brand-cyan/15 backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-cyan/15 text-brand-cyan">
+            <CheckCircle2 className="size-4" />
+          </span>
+          <span className="min-w-0 truncate">{feedback}</span>
+        </div>
+      ) : null}
     </QuickModalsContext.Provider>
   )
 }

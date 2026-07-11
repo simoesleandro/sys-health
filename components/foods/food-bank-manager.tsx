@@ -2,7 +2,14 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
+import {
+  CheckCircle2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react"
 
 import { FoodFormModal } from "@/components/foods/food-form-modal"
 import {
@@ -68,7 +75,15 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
     null
   )
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  const [feedback, setFeedback] = React.useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = React.useTransition()
+
+  React.useEffect(() => {
+    if (!feedback) return
+
+    const timer = window.setTimeout(() => setFeedback(null), 3600)
+    return () => window.clearTimeout(timer)
+  }, [feedback])
 
   function openCreateModal() {
     setEditingFood(null)
@@ -80,7 +95,8 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
     setModalOpen(true)
   }
 
-  function handleSaved() {
+  function handleSaved(message: string) {
+    setFeedback(message)
     router.refresh()
   }
 
@@ -140,6 +156,17 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
       </PageHeader>
 
       <NeonCard accent="orange" className="overflow-hidden">
+        {feedback ? (
+          <div
+            className="flex items-center gap-2 border-b border-brand-cyan/20 bg-brand-cyan/10 px-4 py-3 text-sm text-brand-cyan"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle2 className="size-4 shrink-0" />
+            <span>{feedback}</span>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-3 border-b border-zinc-800/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

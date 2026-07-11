@@ -22,7 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useEditMealModal } from "@/components/modals/quick-modals-context"
+import {
+  useEditMealModal,
+  useQuickModals,
+} from "@/components/modals/quick-modals-context"
 import { searchFoods } from "@/lib/actions/foods"
 import { getMealForEdit, updateMeal } from "@/lib/actions/meals"
 import {
@@ -96,6 +99,7 @@ function clampCartQuantity(value: number, unit: string) {
 export function EditMealModal() {
   const router = useRouter()
   const { open, mealId, setOpen } = useEditMealModal()
+  const { showFeedback } = useQuickModals()
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<FoodSearchResult[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
@@ -265,6 +269,7 @@ export function EditMealModal() {
         return
       }
 
+      showFeedback("Refeição atualizada.")
       handleOpenChange(false)
       router.refresh()
     })
