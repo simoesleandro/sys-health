@@ -32,7 +32,7 @@ export function CalendarRefreshButton({ className }: { className?: string }) {
       disabled={isRefreshing}
       onClick={handleRefresh}
       className={cn(
-        "border-zinc-800/60 bg-zinc-950/50 text-xs text-slate-300 backdrop-blur-md",
+        "border-brand-magenta/25 bg-brand-magenta/10 text-xs text-brand-magenta backdrop-blur-md",
         "hover:border-brand-magenta/35 hover:bg-fuchsia-950/20 hover:text-brand-magenta",
         className
       )}

@@ -27,9 +27,9 @@ export function HevyCard({ workout }: { workout: HevyWorkout }) {
 
   return (
     <NeonCard accent="green" className="overflow-hidden">
-      <div className="border-b border-zinc-800/60 px-4 py-4">
+      <div className="border-b border-brand-green/20 px-4 py-4">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-800/60 bg-black/40 text-brand-green">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-green/25 bg-brand-green/10 text-brand-green">
             <Dumbbell className="size-5" />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -50,7 +50,7 @@ export function HevyCard({ workout }: { workout: HevyWorkout }) {
         </div>
       </div>
 
-      <div className="border-b border-zinc-800/60 px-4 py-4">
+      <div className="border-b border-brand-green/20 bg-black/10 px-4 py-4">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <WorkoutMetric
             label="Duração"
@@ -87,7 +87,7 @@ export function HevyCard({ workout }: { workout: HevyWorkout }) {
               <AccordionItem
                 key={`${workout.id}-${exercise.title}-${index}`}
                 value={`${workout.id}-${index}`}
-                className="border-zinc-800/40"
+                className="border-white/10"
               >
                 <AccordionTrigger className="py-3 text-sm font-medium hover:no-underline">
                   <div className="grid w-full grid-cols-1 gap-2 pr-2 sm:grid-cols-[minmax(0,1fr)_5rem_4rem] sm:items-center sm:gap-3">
@@ -111,7 +111,7 @@ export function HevyCard({ workout }: { workout: HevyWorkout }) {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <ul className="flex flex-col gap-2 rounded-lg border border-zinc-800/50 bg-black/20 p-3">
+                  <ul className="flex flex-col gap-2 rounded-lg border border-brand-green/20 bg-brand-green/5 p-3">
                     {exercise.sets.map((set, setIndex) => (
                       <li
                         key={`${exercise.title}-${set.index}-${setIndex}`}

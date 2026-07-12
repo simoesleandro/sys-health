@@ -14,7 +14,7 @@ function EventRow({
   location: string | null
 }) {
   return (
-    <li className="rounded-lg border border-zinc-800/50 bg-black/20 px-3 py-2.5">
+    <li className="rounded-lg border border-brand-magenta/20 bg-brand-magenta/5 px-3 py-2.5">
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-mono text-sm font-bold text-brand-magenta">
           {timeLabel}

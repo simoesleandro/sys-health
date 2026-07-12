@@ -2,9 +2,28 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
+import {
+  CheckCircle2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+} from "lucide-react"
 
 import { FoodFormModal } from "@/components/foods/food-form-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,6 +42,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header"
 import { Input } from "@/components/ui/input"
 import { NeonCard } from "@/components/ui/neon-card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { deleteFood } from "@/lib/actions/foods"
 import {
   formatFoodPortion,
@@ -38,14 +58,33 @@ function normalizeSearchTerm(value: string) {
     .replace(/\p{M}/gu, "")
 }
 
+function isComboFood(food: FavoriteFood) {
+  return normalizeSearchTerm(food.categoria) === "combo"
+}
+
+type FoodTypeFilter = "all" | "foods" | "combos"
+
 export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
   const router = useRouter()
   const [search, setSearch] = React.useState("")
+  const [typeFilter, setTypeFilter] = React.useState<FoodTypeFilter>("all")
   const [modalOpen, setModalOpen] = React.useState(false)
   const [editingFood, setEditingFood] = React.useState<FavoriteFood | null>(
     null
   )
+  const [foodToDelete, setFoodToDelete] = React.useState<FavoriteFood | null>(
+    null
+  )
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  const [feedback, setFeedback] = React.useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = React.useTransition()
+
+  React.useEffect(() => {
+    if (!feedback) return
+
+    const timer = window.setTimeout(() => setFeedback(null), 3600)
+    return () => window.clearTimeout(timer)
+  }, [feedback])
 
   function openCreateModal() {
     setEditingFood(null)
@@ -57,32 +96,46 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
     setModalOpen(true)
   }
 
-  function handleSaved() {
+  function handleSaved(message: string) {
+    setFeedback(message)
     router.refresh()
   }
 
   const filteredFoods = React.useMemo(() => {
     const term = normalizeSearchTerm(search)
-    if (!term) return foods
 
-    return foods.filter((food) =>
-      normalizeSearchTerm(food.descricao).includes(term)
-    )
-  }, [foods, search])
+    return foods.filter((food) => {
+      const isCombo = isComboFood(food)
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "combos" && isCombo) ||
+        (typeFilter === "foods" && !isCombo)
+      const matchesSearch =
+        !term || normalizeSearchTerm(food.descricao).includes(term)
 
-  function handleDelete(food: FavoriteFood) {
-    if (
-      !confirm(`Apagar "${food.descricao}"? Esta ação não pode ser desfeita.`)
-    ) {
-      return
-    }
+      return matchesType && matchesSearch
+    })
+  }, [foods, search, typeFilter])
 
+  const comboCount = foods.filter(isComboFood).length
+  const foodCount = foods.length - comboCount
+  const aiFoods = foods.filter((food) => food.origem === "ia")
+  const hasSearch = search.trim().length > 0
+
+  function openDeleteDialog(food: FavoriteFood) {
+    setFoodToDelete(food)
+    setDeleteError(null)
+  }
+
+  function handleDelete() {
+    if (!foodToDelete) return
     startDeleteTransition(async () => {
-      const result = await deleteFood(food.id)
+      const result = await deleteFood(foodToDelete.id)
       if (!result.success) {
-        alert(result.error)
+        setDeleteError(result.error)
         return
       }
+      setFoodToDelete(null)
       router.refresh()
     })
   }
@@ -96,7 +149,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
       >
         <Button
           type="button"
-          className="shrink-0 border-zinc-800/60 bg-black/50 text-brand-cyan hover:bg-zinc-900/60"
+          className="shrink-0 border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan hover:bg-brand-cyan/15"
           onClick={openCreateModal}
         >
           <Plus className="size-4" />
@@ -104,9 +157,66 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
         </Button>
       </PageHeader>
 
+      {aiFoods.length > 0 ? (
+        <NeonCard accent="purple" className="mb-4 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-brand-purple/20 bg-brand-purple/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand-purple/30 bg-brand-purple/10 text-brand-purple">
+                <Sparkles className="size-4" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Criados com IA
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Revise macros estimados e corrija qualquer valor estranho.
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="w-fit border-brand-purple/30 text-brand-purple"
+            >
+              {aiFoods.length} para revisar
+            </Badge>
+          </div>
+
+          <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+            {aiFoods.slice(0, 4).map((food) => (
+              <button
+                key={food.id}
+                type="button"
+                className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-left transition-colors hover:border-brand-purple/35 hover:bg-brand-purple/10"
+                onClick={() => openEditModal(food)}
+              >
+                <span className="block truncate text-sm font-medium text-white">
+                  {food.descricao}
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {formatMacro(food.calorias)} kcal · P{" "}
+                  {formatMacro(food.proteinas)}g · C{" "}
+                  {formatMacro(food.carboidratos)}g
+                </span>
+              </button>
+            ))}
+          </div>
+        </NeonCard>
+      ) : null}
+
       <NeonCard accent="orange" className="overflow-hidden">
-        <div className="border-b border-zinc-800/50 px-4 py-3">
-          <div className="relative max-w-md">
+        {feedback ? (
+          <div
+            className="flex items-center gap-2 border-b border-brand-cyan/20 bg-brand-cyan/10 px-4 py-3 text-sm text-brand-cyan"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle2 className="size-4 shrink-0" />
+            <span>{feedback}</span>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3 border-b border-zinc-800/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -116,7 +226,43 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
               aria-label="Buscar alimento"
             />
           </div>
+
+          <Tabs
+            value={typeFilter}
+            onValueChange={(value) => setTypeFilter(value as FoodTypeFilter)}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="w-full sm:w-fit">
+              <TabsTrigger value="all" className="flex-1 sm:flex-none">
+                Todos
+                <span className="text-xs text-muted-foreground">
+                  {foods.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="foods" className="flex-1 sm:flex-none">
+                Alimentos
+                <span className="text-xs text-muted-foreground">
+                  {foodCount}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="combos" className="flex-1 sm:flex-none">
+                Combos
+                <span className="text-xs text-muted-foreground">
+                  {comboCount}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
+
+        {deleteError ? (
+          <p
+            className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            {deleteError}
+          </p>
+        ) : null}
 
         {foods.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
@@ -125,7 +271,9 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
           </p>
         ) : filteredFoods.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
-            Nenhum alimento encontrado para &quot;{search.trim()}&quot;.
+            {hasSearch
+              ? `Nenhum item encontrado para "${search.trim()}".`
+              : "Nenhum item encontrado nesse filtro."}
           </p>
         ) : (
           <Table>
@@ -144,7 +292,25 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
               {filteredFoods.map((food) => (
                 <TableRow key={food.id}>
                   <TableCell className="max-w-[200px] truncate font-medium">
-                    {food.descricao}
+                    <span className="inline-flex max-w-full items-center gap-2">
+                      <span className="truncate">{food.descricao}</span>
+                      {isComboFood(food) ? (
+                        <Badge
+                          variant="outline"
+                          className="border-brand-cyan/30 text-brand-cyan"
+                        >
+                          Combo
+                        </Badge>
+                      ) : null}
+                      {food.origem === "ia" ? (
+                        <Badge
+                          variant="outline"
+                          className="border-brand-purple/30 text-brand-purple"
+                        >
+                          IA
+                        </Badge>
+                      ) : null}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {formatFoodPortion(
@@ -181,7 +347,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(food)}
+                        onClick={() => openDeleteDialog(food)}
                         disabled={isDeleting}
                         aria-label={`Apagar ${food.descricao}`}
                       >
@@ -207,7 +373,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             variant="destructive"
-                            onClick={() => handleDelete(food)}
+                            onClick={() => openDeleteDialog(food)}
                           >
                             <Trash2 className="size-4" />
                             Apagar
@@ -227,8 +393,50 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
         open={modalOpen}
         onOpenChange={setModalOpen}
         food={editingFood}
+        foods={foods}
         onSaved={handleSaved}
       />
+
+      <AlertDialog
+        open={foodToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setFoodToDelete(null)
+            setDeleteError(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar alimento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {foodToDelete
+                ? `"${foodToDelete.descricao}" será removido do banco. Esta ação não pode ser desfeita.`
+                : "Este alimento será removido do banco."}
+            </AlertDialogDescription>
+            {deleteError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                handleDelete()
+              }}
+            >
+              {isDeleting ? "Apagando…" : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
-import { Loader2, Send } from "lucide-react"
+import { Eraser, History, Loader2, Send, Square } from "lucide-react"
 
 import { CoachMessage } from "@/components/ia-coach/coach-message"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,38 @@ import {
   type CoachMessagePart,
 } from "@/lib/coach-chat-utils"
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
+import { neonCardClasses } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
+
+const QUICK_PROMPTS = [
+  {
+    label: "Analisar meu dia",
+    prompt:
+      "Analise meu dia de hoje e me diga o que mais impacta minha energia, fome e recuperação.",
+  },
+  {
+    label: "Ajustar amanhã",
+    prompt:
+      "Com base nos meus dados recentes, sugira ajustes simples para melhorar meu dia de amanhã.",
+  },
+  {
+    label: "Nutrição agora",
+    prompt:
+      "Olhe minha alimentação recente e sugira a próxima refeição com foco nos meus macros.",
+  },
+  {
+    label: "Sono e treino",
+    prompt:
+      "Compare meu sono, recuperação e treino recente e indique o melhor foco para hoje.",
+  },
+] as const
+
+type CoachHistoryPair = {
+  id: string
+  question: string
+  answer: string
+  messages: CoachInitialMessage[]
+}
 
 export function ChatInterface({
   className,
@@ -36,13 +67,50 @@ export function ChatInterface({
     )
   )
 
-  const { messages, sendMessage, status, error } = useChat({
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    error,
+    clearError,
+    stop,
+  } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     messages: initialMessages as unknown as UIMessage[],
   })
 
   const isBusy = status === "submitted" || status === "streaming"
   const errorMessage = formatCoachErrorMessage(error)
+  const hasSavedHistory = initialMessages.length > 0
+  const canRestoreHistory = hasSavedHistory && messages.length === 0
+  const historyPairs = React.useMemo<CoachHistoryPair[]>(() => {
+    const pairs: CoachHistoryPair[] = []
+
+    for (let index = 0; index < initialMessages.length - 1; index += 2) {
+      const userMessage = initialMessages[index]
+      const assistantMessage = initialMessages[index + 1]
+      if (
+        userMessage?.role !== "user" ||
+        assistantMessage?.role !== "assistant"
+      ) {
+        continue
+      }
+
+      const question = getMessageText(userMessage.parts).trim()
+      const answer = getMessageText(assistantMessage.parts).trim()
+      if (!question || !answer) continue
+
+      pairs.push({
+        id: assistantMessage.id,
+        question,
+        answer,
+        messages: [userMessage, assistantMessage],
+      })
+    }
+
+    return pairs.reverse().slice(0, 4)
+  }, [initialMessages])
 
   const lastMessage = messages.at(-1)
   const awaitingFirstToken =
@@ -75,19 +143,49 @@ export function ChatInterface({
     void logCoachAnalysis({ pergunta, resposta })
   }, [isBusy, messages])
 
+  function sendCoachMessage(text: string) {
+    const trimmedText = text.trim()
+    if (!trimmedText || isBusy) return
+
+    clearError()
+    sendMessage({ text: trimmedText })
+    setInput("")
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const text = input.trim()
-    if (!text || isBusy) return
+    sendCoachMessage(input)
+  }
 
-    sendMessage({ text })
+  function handleHistoryToggle() {
+    if (isBusy) return
+
+    clearError()
     setInput("")
+
+    if (canRestoreHistory) {
+      setMessages(initialMessages as unknown as UIMessage[])
+      return
+    }
+
+    if (messages.length > 0) {
+      setMessages([])
+    }
+  }
+
+  function handleOpenHistoryPair(pair: CoachHistoryPair) {
+    if (isBusy) return
+
+    clearError()
+    setInput("")
+    setMessages(pair.messages as unknown as UIMessage[])
   }
 
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card",
+        neonCardClasses("cyan"),
+        "flex min-h-0 flex-1 flex-col overflow-hidden",
         className
       )}
     >
@@ -96,12 +194,39 @@ export function ChatInterface({
         className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
       >
         {messages.length === 0 ? (
-          <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">SYS.HEALTH Coach</p>
-            <p>
-              Pergunte sobre nutrição, sono, HRV ou recuperação com base nos
-              seus dados de hoje.
-            </p>
+          <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-4 text-center text-sm text-muted-foreground">
+            <div className="flex flex-col gap-2">
+              <p className="font-medium text-foreground">SYS.HEALTH Coach</p>
+              <p>
+                Pergunte sobre nutrição, sono, HRV ou recuperação com base nos
+                seus dados de hoje.
+              </p>
+            </div>
+
+            {historyPairs.length > 0 ? (
+              <div className="w-full max-w-xl text-left">
+                <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                  Histórico recente
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {historyPairs.map((pair) => (
+                    <button
+                      key={pair.id}
+                      type="button"
+                      onClick={() => handleOpenHistoryPair(pair)}
+                      className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-left transition-colors hover:border-brand-cyan/35 hover:bg-brand-cyan/10"
+                    >
+                      <span className="line-clamp-2 text-sm font-medium text-foreground">
+                        {pair.question}
+                      </span>
+                      <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+                        {pair.answer}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           messages.map((message, index) => {
@@ -138,20 +263,66 @@ export function ChatInterface({
         ) : null}
       </div>
 
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-brand-cyan/20 bg-black/20 px-4 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isBusy || (!hasSavedHistory && messages.length === 0)}
+          onClick={handleHistoryToggle}
+          title={canRestoreHistory ? "Ver histórico" : "Nova conversa"}
+          className="h-8 shrink-0 rounded-full px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+        >
+          {canRestoreHistory ? (
+            <History className="size-3.5" />
+          ) : (
+            <Eraser className="size-3.5" />
+          )}
+          <span className="hidden sm:inline">
+            {canRestoreHistory ? "Ver histórico" : "Nova conversa"}
+          </span>
+        </Button>
+
+        {QUICK_PROMPTS.map((quickPrompt) => (
+          <Button
+            key={quickPrompt.label}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            onClick={() => sendCoachMessage(quickPrompt.prompt)}
+            className="h-8 shrink-0 rounded-full border-white/10 bg-black/30 px-3 text-xs font-medium text-muted-foreground hover:border-brand-cyan/35 hover:bg-brand-cyan/10 hover:text-brand-cyan"
+          >
+            {quickPrompt.label}
+          </Button>
+        ))}
+      </div>
+
       <form
         onSubmit={handleSubmit}
-        className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3"
+        className="flex shrink-0 items-center gap-2 border-t border-brand-cyan/20 bg-black/30 px-4 py-3"
       >
         <Input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="Pergunte ao Coach…"
           disabled={isBusy}
-          className="flex-1"
+          className="flex-1 border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
         />
-        <Button type="submit" size="icon" disabled={isBusy || !input.trim()}>
-          <Send className="size-4" />
-          <span className="sr-only">Enviar</span>
+        <Button
+          type={isBusy ? "button" : "submit"}
+          size="icon"
+          disabled={!isBusy && !input.trim()}
+          onClick={isBusy ? stop : undefined}
+        >
+          {isBusy ? (
+            <Square className="size-3.5 fill-current" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          <span className="sr-only">
+            {isBusy ? "Parar resposta" : "Enviar"}
+          </span>
         </Button>
       </form>
     </div>

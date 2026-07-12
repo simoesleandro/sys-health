@@ -28,7 +28,7 @@ export function BiometrySectionCard({
 
       <NeonCard accent="blue" className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-800/60 bg-black/40 text-brand-blue">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-blue/25 bg-brand-blue/10 text-brand-blue">
             <Ruler className="size-5" />
           </div>
           <div className="flex flex-col gap-1">
@@ -45,7 +45,7 @@ export function BiometrySectionCard({
         <Button
           type="button"
           variant="outline"
-          className="shrink-0 border-zinc-800/60 bg-black/40 text-brand-blue hover:bg-zinc-900/60"
+          className="shrink-0 border-brand-blue/25 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/15"
           onClick={() => openBiometryModal()}
         >
           Registrar Medidas

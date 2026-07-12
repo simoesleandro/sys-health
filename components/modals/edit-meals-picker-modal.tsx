@@ -31,9 +31,9 @@ function MealPickerRow({
     <button
       type="button"
       className={cn(
-        "flex w-full min-w-0 flex-col gap-1 rounded-lg border border-zinc-800/60",
-        "bg-zinc-950/40 px-3 py-3 text-left transition-colors",
-        "hover:border-cyan/30 hover:bg-cyan/5"
+        "flex w-full min-w-0 flex-col gap-1 rounded-lg border border-white/10",
+        "bg-black/25 px-3 py-3 text-left transition-colors",
+        "hover:border-brand-cyan/35 hover:bg-brand-cyan/10"
       )}
       onClick={() => onSelect(meal.id)}
     >
@@ -94,17 +94,17 @@ export function EditMealsPickerModal() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+        className="fixed inset-x-3 top-[8dvh] flex max-h-[85dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-brand-cyan/25 bg-zinc-950 p-0 shadow-2xl shadow-brand-cyan/10 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2"
         showCloseButton
       >
-        <DialogHeader className="shrink-0 border-b border-zinc-800/60 px-4 py-4 pr-12">
-          <DialogTitle>Editar refeições</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="shrink-0 border-b border-brand-cyan/20 bg-gradient-to-br from-cyan-950/45 via-zinc-950 to-purple-950/25 px-4 py-4 pr-12">
+          <DialogTitle className="text-white">Editar refeições</DialogTitle>
+          <DialogDescription className="text-slate-300">
             Selecione a refeição de hoje que deseja editar.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto bg-gradient-to-b from-zinc-950 via-zinc-950 to-cyan-950/20 px-4 py-4">
           {isLoading && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -113,7 +113,7 @@ export function EditMealsPickerModal() {
           )}
 
           {!isLoading && meals.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-brand-cyan/25 bg-brand-cyan/5 px-3 py-4 text-sm text-muted-foreground">
               Nenhuma refeição registrada hoje.
             </p>
           )}
@@ -128,7 +128,10 @@ export function EditMealsPickerModal() {
             ))}
 
           {error && (
-            <p className="text-sm text-destructive" role="alert">
+            <p
+              className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
               {error}
             </p>
           )}

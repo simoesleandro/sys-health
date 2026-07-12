@@ -4,6 +4,7 @@ import * as React from "react"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+import { useQuickModals } from "@/components/modals/quick-modals-context"
 import { Button } from "@/components/ui/button"
 import { syncHevyData } from "@/lib/actions/sync"
 import { cn } from "@/lib/utils"
@@ -15,6 +16,7 @@ type SyncFeedback = {
 
 export function HevySyncButton({ className }: { className?: string }) {
   const router = useRouter()
+  const { showFeedback } = useQuickModals()
   const [isSyncing, setIsSyncing] = React.useState(false)
   const [feedback, setFeedback] = React.useState<SyncFeedback | null>(null)
 
@@ -34,7 +36,7 @@ export function HevySyncButton({ className }: { className?: string }) {
       const result = await syncHevyData()
 
       if (result.success) {
-        setFeedback({ type: "success", message: result.message })
+        showFeedback(result.message)
         router.refresh()
       } else {
         setFeedback({ type: "error", message: result.error })
@@ -58,7 +60,7 @@ export function HevySyncButton({ className }: { className?: string }) {
         disabled={isSyncing}
         onClick={handleSync}
         className={cn(
-          "border-zinc-800/60 bg-zinc-950/50 text-xs text-slate-300 backdrop-blur-md",
+          "border-brand-green/25 bg-brand-green/10 text-xs text-brand-green backdrop-blur-md",
           "hover:border-green-500/35 hover:bg-green-950/25 hover:text-brand-green",
           className
         )}

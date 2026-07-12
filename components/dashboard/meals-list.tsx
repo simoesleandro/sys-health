@@ -1,3 +1,4 @@
+import { EmptyMealsCard } from "@/components/dashboard/empty-meals-card"
 import { MealCardActions } from "@/components/dashboard/meal-card-actions"
 import { MealMacroBadges } from "@/components/dashboard/meal-macro-badges"
 import { NeonCard } from "@/components/ui/neon-card"
@@ -28,7 +29,7 @@ function MealCard({
 }) {
   return (
     <NeonCard accent="cyan" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-zinc-800/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-brand-cyan/20 px-4 py-3">
         <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
           <span className="font-mono text-sm font-bold text-brand-cyan">
             {hora}
@@ -40,7 +41,7 @@ function MealCard({
         <MealCardActions mealId={mealId} categoria={categoria} />
       </div>
 
-      <div className="px-4 py-3">
+      <div className="bg-black/10 px-4 py-3">
         <ul className="flex flex-col gap-2">
           {componentes.map((item, index) => {
             const quantidade = formatComponentQuantity(item)
@@ -75,15 +76,7 @@ export async function MealsList() {
   const meals = await getTodayMeals()
 
   if (meals.length === 0) {
-    return (
-      <NeonCard accent="cyan" className="px-5 py-6">
-        <p className="neon-section-title">Nenhuma refeição registrada hoje</p>
-        <p className="neon-section-subtitle mt-2">
-          Use a ação rápida &quot;Nova refeição&quot; na sidebar para registrar
-          a primeira refeição do dia.
-        </p>
-      </NeonCard>
-    )
+    return <EmptyMealsCard />
   }
 
   return (

@@ -46,27 +46,30 @@ export function LoginForm() {
         </p>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <label htmlFor="email" className="text-sm font-medium text-slate-300">
             E-mail
           </label>
           <Input
             id="email"
+            name="email"
             type="email"
             autoComplete="email"
+            spellCheck={false}
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="border-zinc-800/70 bg-black/40"
           />
         </div>
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <label htmlFor="password" className="text-sm font-medium text-slate-300">
             Senha
           </label>
           <Input
             id="password"
+            name="password"
             type="password"
             autoComplete="current-password"
             required

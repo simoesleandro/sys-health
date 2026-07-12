@@ -15,7 +15,7 @@ import {
   formatIaCreatedLabel,
   type IaHistoryEntry,
 } from "@/lib/ia-analyses"
-import type { FavoriteFood } from "@/lib/foods"
+import { parseFoodComboComponents, type FavoriteFood } from "@/lib/foods"
 import type { NutritionGoals } from "@/lib/goals"
 import {
   getBristolLabel,
@@ -829,7 +829,36 @@ function mapFavoriteFoodRow(row: Record<string, unknown>): FavoriteFood {
     gorduras: Number(row.gorduras ?? 0),
     qtdReferencia: Number(row.qtd_referencia ?? 100),
     unidadeReferencia: String(row.unidade_referencia ?? "g"),
+    origem: row.origem === "ia" ? "ia" : "manual",
+    componentes: parseFoodComboComponents(row.componentes_json),
   }
+}
+
+const FAVORITE_FOOD_FIELDS =
+  "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia, origem, componentes_json"
+
+const LEGACY_FAVORITE_FOOD_FIELDS =
+  "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+
+function isFoodMetadataSchemaError(error: unknown) {
+  if (!error || typeof error !== "object") return false
+
+  const row = error as Record<string, unknown>
+  const text = [row.message, row.details, row.hint, row.code]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  const mentionsMetadata =
+    text.includes("origem") || text.includes("componentes_json")
+  const looksLikeMissingColumn =
+    text.includes("column") ||
+    text.includes("schema") ||
+    text.includes("could not find") ||
+    text.includes("42703") ||
+    text.includes("pgrst204")
+
+  return mentionsMetadata && looksLikeMissingColumn
 }
 
 export const getFavoriteFoods = cache(async (): Promise<FavoriteFood[]> => {
@@ -839,16 +868,28 @@ export const getFavoriteFoods = cache(async (): Promise<FavoriteFood[]> => {
   try {
     const { data, error } = await supabase
       .from("alimentos_favoritos")
-      .select(
-        "id, descricao, categoria, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
-      )
+      .select(FAVORITE_FOOD_FIELDS)
       .order("descricao", { ascending: true })
 
-    if (error) throw error
+    if (error) {
+      if (!isFoodMetadataSchemaError(error)) throw error
+
+      const fallback = await supabase
+        .from("alimentos_favoritos")
+        .select(LEGACY_FAVORITE_FOOD_FIELDS)
+        .order("descricao", { ascending: true })
+
+      if (fallback.error) throw fallback.error
+
+      console.warn(
+        "[getFavoriteFoods] colunas de IA/combos ainda não existem no banco; usando leitura legada."
+      )
+      return (fallback.data ?? []).map((row) => mapFavoriteFoodRow(row))
+    }
 
     return (data ?? []).map((row) => mapFavoriteFoodRow(row))
   } catch (error) {
-    console.error("[getFavoriteFoods]", error)
+    console.warn("[getFavoriteFoods]", error)
     return []
   }
 })

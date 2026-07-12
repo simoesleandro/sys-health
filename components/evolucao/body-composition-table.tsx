@@ -5,6 +5,7 @@ import {
   type BodyCompositionDelta,
   type BodyCompositionDeltasResult,
 } from "@/lib/body-composition-shared"
+import { neonCardClasses } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
 function formatMetricValue(value: number, decimals: number, unit: string) {
@@ -60,9 +61,9 @@ export function BodyCompositionTable({
   data: BodyCompositionDeltasResult
 }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-zinc-800/50 border-t-blue-500/50 bg-zinc-950/50 px-5 py-5 backdrop-blur-md">
+    <div className={cn(neonCardClasses("blue"), "flex h-full flex-col px-5 py-5")}>
       <div className="mb-4">
-        <h3 className="neon-label text-[10px] tracking-[0.14em]">
+        <h3 className="neon-section-title">
           Composição corporal e medidas
         </h3>
         <p className="neon-section-subtitle mt-1">

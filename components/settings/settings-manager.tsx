@@ -7,6 +7,16 @@ import { Pencil, Plus, Trash2 } from "lucide-react"
 import { GoalsForm } from "@/components/settings/goals-form"
 import { SupplementFormModal } from "@/components/settings/supplement-form-modal"
 import { PageHeader } from "@/components/layout/page-header"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { NeonCard } from "@/components/ui/neon-card"
 import {
@@ -37,6 +47,8 @@ export function SettingsManager({
   const router = useRouter()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<UserSupplementConfig | null>(null)
+  const [deleting, setDeleting] = useState<UserSupplementConfig | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDelete] = useTransition()
 
   function openCreate() {
@@ -51,20 +63,20 @@ export function SettingsManager({
 
   const supplementProducts = groupSupplementProducts(initialSupplements)
 
-  function handleDelete(item: UserSupplementConfig) {
-    const displayName = getSupplementDisplayName(item)
-    if (
-      !confirm(`Apagar "${displayName}"? Registos antigos não são removidos.`)
-    ) {
-      return
-    }
+  function openDeleteDialog(item: UserSupplementConfig) {
+    setDeleting(item)
+    setDeleteError(null)
+  }
 
+  function handleDelete() {
+    if (!deleting) return
     startDelete(async () => {
-      const result = await deleteSupplementProductGroup(item.dbId)
+      const result = await deleteSupplementProductGroup(deleting.dbId)
       if (!result.success) {
-        alert(result.error)
+        setDeleteError(result.error)
         return
       }
+      setDeleting(null)
       router.refresh()
     })
   }
@@ -98,12 +110,21 @@ export function SettingsManager({
           <Button
             type="button"
             onClick={openCreate}
-            className="border-zinc-800/60 bg-black/50 text-brand-green hover:bg-zinc-900/60"
+            className="border-brand-green/25 bg-brand-green/10 text-brand-green hover:bg-brand-green/15"
           >
             <Plus className="size-4" />
             Adicionar
           </Button>
         </div>
+
+        {deleteError ? (
+          <p
+            className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            {deleteError}
+          </p>
+        ) : null}
 
         <Table>
           <TableHeader>
@@ -162,7 +183,7 @@ export function SettingsManager({
                         size="icon"
                         variant="ghost"
                         disabled={isDeleting}
-                        onClick={() => handleDelete(representative)}
+                        onClick={() => openDeleteDialog(representative)}
                         aria-label={`Apagar ${displayName}`}
                       >
                         <Trash2 className="size-4 text-red-400" />
@@ -188,6 +209,47 @@ export function SettingsManager({
         editing={editing}
         onSaved={() => router.refresh()}
       />
+
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeleting(null)
+            setDeleteError(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar suplemento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting
+                ? `"${getSupplementDisplayName(deleting)}" será removido das configurações. Registros antigos não são removidos.`
+                : "Este suplemento será removido das configurações."}
+            </AlertDialogDescription>
+            {deleteError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                handleDelete()
+              }}
+            >
+              {isDeleting ? "Apagando…" : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

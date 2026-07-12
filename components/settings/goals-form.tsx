@@ -56,23 +56,25 @@ export function GoalsForm({ initialGoals }: { initialGoals: NutritionGoals }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {FIELDS.map((field) => (
-          <div key={field.key} className="space-y-2">
+          <div key={field.key} className="flex flex-col gap-2">
             <Label htmlFor={field.key}>
               {field.label}
               {field.unit ? ` (${field.unit})` : ""}
             </Label>
             <Input
               id={field.key}
+              name={field.key}
               type="number"
               step={field.step}
               min={0}
+              inputMode="decimal"
               required
               value={goals[field.key]}
               onChange={(event) => updateField(field.key, event.target.value)}
-              className="border-zinc-800/70 bg-black/40"
+              className="border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
             />
           </div>
         ))}
@@ -84,7 +86,9 @@ export function GoalsForm({ initialGoals }: { initialGoals: NutritionGoals }) {
         </p>
       ) : null}
       {saved ? (
-        <p className="text-sm text-brand-cyan">Metas salvas com sucesso.</p>
+        <p className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2 text-sm text-brand-cyan">
+          Metas salvas com sucesso.
+        </p>
       ) : null}
 
       <Button

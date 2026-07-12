@@ -2,18 +2,9 @@
 
 import { Line, LineChart, ResponsiveContainer } from "recharts"
 
-import { NEON_ACCENTS } from "@/lib/neon-theme"
+import { NEON_ACCENTS, neonCardClasses } from "@/lib/neon-theme"
 import type { TrendMetricData } from "@/lib/trends"
 import { cn } from "@/lib/utils"
-
-const ACCENT_TOP_BORDER: Record<TrendMetricData["accent"], string> = {
-  cyan: "border-t-cyan-500/50",
-  blue: "border-t-blue-500/50",
-  magenta: "border-t-fuchsia-500/50",
-  purple: "border-t-purple-500/50",
-  green: "border-t-emerald-500/50",
-  orange: "border-t-orange-500/50",
-}
 
 function formatDelta(delta: number) {
   const sign = delta > 0 ? "+" : ""
@@ -37,10 +28,8 @@ export function TrendCard({ metric }: { metric: TrendMetricData }) {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border border-zinc-800/50 backdrop-blur-md",
-        styles.surface,
-        ACCENT_TOP_BORDER[metric.accent],
-        styles.atmosphere,
+        neonCardClasses(metric.accent),
+        "flex flex-col",
         "px-3.5 py-3"
       )}
     >
