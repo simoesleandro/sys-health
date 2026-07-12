@@ -55,14 +55,14 @@ function CoachMessageComponent({
 
   return (
     <div className="flex w-full justify-start gap-3 [content-visibility:auto]">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800/60 bg-black/40 text-brand-cyan">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan">
         <Brain className="size-4" />
       </div>
       <div
         className={cn(
           "relative min-w-0 max-w-[90%] rounded-2xl px-4 py-3",
           canCopy ? "pr-11" : null,
-          "bg-muted/30 text-foreground"
+          "border border-white/10 bg-black/20 text-foreground"
         )}
       >
         {canCopy ? (

@@ -23,9 +23,9 @@ function activityBadgeClass(tipo: ZeppActivityType) {
 export function ZeppCard({ session }: { session: ZeppRunSession }) {
   return (
     <NeonCard accent="cyan" className="overflow-hidden">
-      <div className="border-b border-zinc-800/60 px-4 py-4">
+      <div className="border-b border-brand-cyan/20 px-4 py-4">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-800/60 bg-black/40 text-brand-cyan">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan">
             <Footprints className="size-5" />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -43,7 +43,7 @@ export function ZeppCard({ session }: { session: ZeppRunSession }) {
         </div>
       </div>
 
-      <div className="px-4 py-4">
+      <div className="bg-black/10 px-4 py-4">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <WorkoutMetric
             label="Distância"

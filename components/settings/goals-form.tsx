@@ -74,7 +74,7 @@ export function GoalsForm({ initialGoals }: { initialGoals: NutritionGoals }) {
               required
               value={goals[field.key]}
               onChange={(event) => updateField(field.key, event.target.value)}
-              className="border-zinc-800/70 bg-black/40"
+              className="border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
             />
           </div>
         ))}
@@ -86,7 +86,9 @@ export function GoalsForm({ initialGoals }: { initialGoals: NutritionGoals }) {
         </p>
       ) : null}
       {saved ? (
-        <p className="text-sm text-brand-cyan">Metas salvas com sucesso.</p>
+        <p className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2 text-sm text-brand-cyan">
+          Metas salvas com sucesso.
+        </p>
       ) : null}
 
       <Button

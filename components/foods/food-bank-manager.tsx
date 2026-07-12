@@ -149,7 +149,7 @@ export function FoodBankManager({ foods }: { foods: FavoriteFood[] }) {
       >
         <Button
           type="button"
-          className="shrink-0 border-zinc-800/60 bg-black/50 text-brand-cyan hover:bg-zinc-900/60"
+          className="shrink-0 border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan hover:bg-brand-cyan/15"
           onClick={openCreateModal}
         >
           <Plus className="size-4" />

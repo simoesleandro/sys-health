@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { neonCardClasses } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
 export function AuthCard({
@@ -18,7 +19,8 @@ export function AuthCard({
   return (
     <div
       className={cn(
-        "mx-auto w-full max-w-md rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur",
+        neonCardClasses("cyan"),
+        "mx-auto w-full max-w-md p-8",
         className
       )}
     >

@@ -35,7 +35,7 @@ export function EvacuationActions({
           type="button"
           size="lg"
           variant="outline"
-          className="flex-1 border-zinc-700 bg-zinc-950/50 font-semibold text-white hover:bg-zinc-900"
+          className="flex-1 border-brand-green/25 bg-brand-green/10 font-semibold text-brand-green hover:bg-brand-green/15"
           onClick={() => setHistoryOpen(true)}
         >
           <ClipboardList className="size-5" />

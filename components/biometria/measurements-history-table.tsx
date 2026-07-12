@@ -4,6 +4,7 @@ import {
   pickLatestMeasurementRecord,
 } from "@/lib/biometry"
 import { getMeasurementsHistory } from "@/lib/data"
+import { neonCardClasses } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
 function formatValue(value: number | null) {
@@ -19,11 +20,11 @@ export async function MeasurementsHistoryTable() {
 
   if (records.length === 0) {
     return (
-      <section className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-5">
-        <h2 className="text-sm font-semibold text-white">
+      <section className={cn(neonCardClasses("blue"), "p-5")}>
+        <h2 className="neon-section-title">
           Histórico de medições
         </h2>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-400">
           Nenhuma medição registrada ainda. Use &quot;Registrar Medidas&quot; para
           adicionar a primeira.
         </p>
@@ -36,20 +37,20 @@ export async function MeasurementsHistoryTable() {
   const recent = [...records].reverse().slice(0, 24)
 
   return (
-    <section className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-5">
+    <section className={cn(neonCardClasses("blue"), "overflow-hidden p-5")}>
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="neon-section-title">
           Histórico de medições corporais
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="neon-section-subtitle mt-1">
           {records.length} registro(s) · exibindo os mais recentes
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/20">
         <table className="w-full min-w-[720px] border-separate border-spacing-0 text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-800/60 text-[10px] font-bold tracking-[0.12em] text-slate-500 uppercase">
+            <tr className="border-b border-white/10 bg-brand-blue/5 text-[10px] font-bold tracking-[0.12em] text-slate-400 uppercase">
               <th className="px-2 py-2">Data</th>
               {MEASUREMENT_FIELDS.map((field) => (
                 <th key={field.key} className="px-2 py-2">
@@ -66,7 +67,7 @@ export async function MeasurementsHistoryTable() {
                 <tr
                   key={record.id}
                   className={cn(
-                    "border-b border-zinc-800/40 text-slate-300",
+                    "border-b border-white/10 text-slate-300",
                     isLatest && "bg-brand-cyan/10"
                   )}
                 >

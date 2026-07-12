@@ -29,7 +29,7 @@ function MealCard({
 }) {
   return (
     <NeonCard accent="cyan" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-zinc-800/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-brand-cyan/20 px-4 py-3">
         <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
           <span className="font-mono text-sm font-bold text-brand-cyan">
             {hora}
@@ -41,7 +41,7 @@ function MealCard({
         <MealCardActions mealId={mealId} categoria={categoria} />
       </div>
 
-      <div className="px-4 py-3">
+      <div className="bg-black/10 px-4 py-3">
         <ul className="flex flex-col gap-2">
           {componentes.map((item, index) => {
             const quantidade = formatComponentQuantity(item)

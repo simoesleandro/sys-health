@@ -793,7 +793,7 @@ export function FoodFormModal({
             ) : null}
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-brand-cyan/15 bg-black/55 px-4 py-3 sm:gap-2">
+          <DialogFooter className="shrink-0 gap-2 border-t border-brand-cyan/15 bg-black/55 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:gap-2 sm:px-5 sm:pb-5">
             <Button
               type="button"
               variant="outline"

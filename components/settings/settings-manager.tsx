@@ -110,7 +110,7 @@ export function SettingsManager({
           <Button
             type="button"
             onClick={openCreate}
-            className="border-zinc-800/60 bg-black/50 text-brand-green hover:bg-zinc-900/60"
+            className="border-brand-green/25 bg-brand-green/10 text-brand-green hover:bg-brand-green/15"
           >
             <Plus className="size-4" />
             Adicionar

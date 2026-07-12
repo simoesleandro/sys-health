@@ -44,7 +44,7 @@ export function TodayActionPanel({
               type="button"
               size="sm"
               variant="outline"
-              className="justify-start border-zinc-800/60 bg-black/50 text-brand-cyan hover:bg-zinc-900/60"
+              className="justify-start border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan hover:bg-brand-cyan/15"
               onClick={openMealModal}
             >
               <UtensilsCrossed className="size-4" />
@@ -59,7 +59,7 @@ export function TodayActionPanel({
               type="button"
               size="sm"
               variant="outline"
-              className="justify-start border-zinc-800/60 bg-black/50 text-brand-purple hover:bg-zinc-900/60"
+              className="justify-start border-brand-purple/25 bg-brand-purple/10 text-brand-purple hover:bg-brand-purple/15"
               onClick={openWaterModal}
             >
               <Droplets className="size-4" />
@@ -72,7 +72,7 @@ export function TodayActionPanel({
               type="button"
               size="sm"
               variant="outline"
-              className="justify-start border-zinc-800/60 bg-black/50 text-brand-blue hover:bg-zinc-900/60"
+              className="justify-start border-brand-blue/25 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/15"
               onClick={openBiometryModal}
             >
               <Ruler className="size-4" />

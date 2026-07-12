@@ -16,6 +16,7 @@ import {
   type CoachMessagePart,
 } from "@/lib/coach-chat-utils"
 import { formatCoachErrorMessage } from "@/lib/coach-errors"
+import { neonCardClasses } from "@/lib/neon-theme"
 import { cn } from "@/lib/utils"
 
 const QUICK_PROMPTS = [
@@ -183,7 +184,8 @@ export function ChatInterface({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card",
+        neonCardClasses("cyan"),
+        "flex min-h-0 flex-1 flex-col overflow-hidden",
         className
       )}
     >
@@ -212,7 +214,7 @@ export function ChatInterface({
                       key={pair.id}
                       type="button"
                       onClick={() => handleOpenHistoryPair(pair)}
-                      className="rounded-lg border border-border bg-background/60 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                      className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-left transition-colors hover:border-brand-cyan/35 hover:bg-brand-cyan/10"
                     >
                       <span className="line-clamp-2 text-sm font-medium text-foreground">
                         {pair.question}
@@ -261,7 +263,7 @@ export function ChatInterface({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-border px-4 py-2">
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-brand-cyan/20 bg-black/20 px-4 py-2">
         <Button
           type="button"
           variant="ghost"
@@ -289,7 +291,7 @@ export function ChatInterface({
             size="sm"
             disabled={isBusy}
             onClick={() => sendCoachMessage(quickPrompt.prompt)}
-            className="h-8 shrink-0 rounded-full border-border/80 bg-background/70 px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="h-8 shrink-0 rounded-full border-white/10 bg-black/30 px-3 text-xs font-medium text-muted-foreground hover:border-brand-cyan/35 hover:bg-brand-cyan/10 hover:text-brand-cyan"
           >
             {quickPrompt.label}
           </Button>
@@ -298,14 +300,14 @@ export function ChatInterface({
 
       <form
         onSubmit={handleSubmit}
-        className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3"
+        className="flex shrink-0 items-center gap-2 border-t border-brand-cyan/20 bg-black/30 px-4 py-3"
       >
         <Input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="Pergunte ao Coach…"
           disabled={isBusy}
-          className="flex-1"
+          className="flex-1 border-white/10 bg-black/35 focus-visible:ring-brand-cyan/50"
         />
         <Button
           type={isBusy ? "button" : "submit"}

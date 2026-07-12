@@ -36,8 +36,8 @@ function IaAnalysisCard({
       className={cn(
         "rounded-lg border px-4 py-4",
         highlight
-          ? "border-brand-cyan/40 bg-brand-cyan/5"
-          : "border-zinc-800/50 bg-black/20"
+          ? "border-brand-cyan/40 bg-brand-cyan/10 shadow-sm shadow-brand-cyan/10"
+          : "border-white/10 bg-black/20"
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -63,7 +63,7 @@ function IaAnalysisCard({
           {isCoach ? "Resposta" : "Itens identificados"}
         </p>
         {isCoach ? (
-          <div className="mt-2 rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-3 py-3">
+          <div className="mt-2 rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-3">
             <ChatMessageContent text={entry.resposta} />
           </div>
         ) : entry.mealItems.length > 0 ? (
@@ -92,7 +92,7 @@ export async function HistoryIaAnalyses({
     <section className="mt-6">
       <NeonCard accent="cyan" className="p-5">
         <div className="mb-4 flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-800/60 bg-black/40 text-brand-cyan">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan">
             <Brain className="size-5" />
           </div>
           <div>
@@ -105,7 +105,7 @@ export async function HistoryIaAnalyses({
         </div>
 
         {analyses.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-brand-cyan/25 bg-brand-cyan/5 px-3 py-4 text-sm text-slate-400">
             Nenhuma análise registrada ainda. Converse com o IA Coach ou analise
             uma refeição para começar o histórico.
           </p>

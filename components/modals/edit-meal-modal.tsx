@@ -553,7 +553,7 @@ export function EditMealModal() {
           )}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-3 border-t border-brand-cyan/20 bg-black/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <DialogFooter className="shrink-0 flex-col gap-3 border-t border-brand-cyan/20 bg-black/35 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:pb-5">
           <p className="w-full rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2 text-xs text-slate-300 sm:mr-auto sm:w-auto">
             <span className="font-medium text-foreground">
               {Math.round(totals.calorias)} kcal

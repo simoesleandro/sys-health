@@ -5,11 +5,24 @@ import { ZeppSyncButton } from "@/components/layout/zepp-sync-button"
 import { HevyCard } from "@/components/treinos/hevy-card"
 import { ZeppCard } from "@/components/treinos/zepp-card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { neonCardClasses } from "@/lib/neon-theme"
 import type { HevyWorkout, ZeppRunSession } from "@/lib/treinos"
+import { cn } from "@/lib/utils"
 
-function EmptyState({ message }: { message: string }) {
+function EmptyState({
+  message,
+  accent = "cyan",
+}: {
+  message: string
+  accent?: "cyan" | "green"
+}) {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
+    <div
+      className={cn(
+        neonCardClasses(accent, { glow: false }),
+        "border-dashed p-8 text-center text-sm text-slate-400"
+      )}
+    >
       {message}
     </div>
   )
@@ -30,7 +43,7 @@ export function TreinosTabs({
       </TabsList>
 
       <TabsContent value="hevy" className="mt-4 flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/60 bg-zinc-950/50 px-3 py-2.5 backdrop-blur-md">
+        <div className={cn(neonCardClasses("green", { glow: false }), "flex items-center justify-between gap-3 px-3 py-2.5")}>
           <p className="text-xs text-slate-500">
             Treinos de musculação sincronizados do Hevy
           </p>
@@ -38,7 +51,7 @@ export function TreinosTabs({
         </div>
 
         {hevyWorkouts.length === 0 ? (
-          <EmptyState message="Nenhum treino Hevy sincronizado ainda." />
+          <EmptyState accent="green" message="Nenhum treino Hevy sincronizado ainda." />
         ) : (
           hevyWorkouts.map((workout) => (
             <HevyCard key={workout.id} workout={workout} />
@@ -47,7 +60,7 @@ export function TreinosTabs({
       </TabsContent>
 
       <TabsContent value="zepp" className="mt-4 flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/60 bg-zinc-950/50 px-3 py-2.5 backdrop-blur-md">
+        <div className={cn(neonCardClasses("cyan", { glow: false }), "flex items-center justify-between gap-3 px-3 py-2.5")}>
           <p className="text-xs text-slate-500">
             Corridas e caminhadas do relógio Zepp
           </p>

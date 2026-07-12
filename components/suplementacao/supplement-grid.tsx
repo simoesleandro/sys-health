@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react"
 
+import { NEON_CARD_BASE } from "@/lib/neon-theme"
 import { SUPPLEMENT_THEME_STYLES } from "@/lib/supplement-theme"
 import {
   getSupplementDisplayName,
@@ -20,7 +21,8 @@ function SupplementCard({ item }: { item: SupplementGridItem }) {
     <div
       aria-label={`${displayName}${isTaken ? " — tomado hoje" : ""}`}
       className={cn(
-        "relative flex min-h-[9.5rem] flex-col rounded-xl border border-zinc-800/50 bg-zinc-950/50 p-4 backdrop-blur-md transition-all",
+        NEON_CARD_BASE,
+        "relative flex min-h-[9.5rem] flex-col border border-white/10 p-4 transition-all",
         theme.topBorder,
         theme.surface,
         theme.atmosphere,

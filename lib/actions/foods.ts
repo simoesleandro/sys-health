@@ -14,6 +14,9 @@ import { createServerSupabase } from "@/lib/supabase/server"
 const FOOD_SEARCH_FIELDS =
   "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia, origem, componentes_json"
 
+const LEGACY_FOOD_SEARCH_FIELDS =
+  "id, descricao, categoria, vezes_usado, calorias, proteinas, carboidratos, gorduras, qtd_referencia, unidade_referencia"
+
 const SEARCH_STOPWORDS = new Set([
   "a",
   "as",
@@ -35,6 +38,19 @@ const SEARCH_TOKEN_VARIANTS: Record<string, string[]> = {
   mamao: ["mamão"],
   pao: ["pão"],
   proteina: ["proteína"],
+}
+
+type FoodDbPayload = {
+  descricao: string
+  categoria: string
+  calorias: number
+  proteinas: number
+  carboidratos: number
+  gorduras: number
+  qtd_referencia: number
+  unidade_referencia: string
+  origem: string
+  componentes_json: string | null
 }
 
 function validateFoodInput(data: FoodFormInput) {
@@ -80,6 +96,40 @@ function validateFoodInput(data: FoodFormInput) {
           ? JSON.stringify(data.componentes)
           : null,
     },
+  }
+}
+
+function isFoodMetadataSchemaError(error: unknown) {
+  if (!error || typeof error !== "object") return false
+
+  const row = error as Record<string, unknown>
+  const text = [row.message, row.details, row.hint, row.code]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  const mentionsMetadata =
+    text.includes("origem") || text.includes("componentes_json")
+  const looksLikeMissingColumn =
+    text.includes("column") ||
+    text.includes("schema") ||
+    text.includes("could not find") ||
+    text.includes("42703") ||
+    text.includes("pgrst204")
+
+  return mentionsMetadata && looksLikeMissingColumn
+}
+
+function toLegacyFoodPayload(value: FoodDbPayload) {
+  return {
+    descricao: value.descricao,
+    categoria: value.categoria,
+    calorias: value.calorias,
+    proteinas: value.proteinas,
+    carboidratos: value.carboidratos,
+    gorduras: value.gorduras,
+    qtd_referencia: value.qtd_referencia,
+    unidade_referencia: value.unidade_referencia,
   }
 }
 
@@ -157,11 +207,12 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
 
   const supabase = await createServerSupabase()
   if (!supabase) return []
+  const db = supabase
 
-  try {
-    const directResult = await supabase
+  async function runSearch(fields: string) {
+    const directResult = await db
       .from("alimentos_favoritos")
-      .select(FOOD_SEARCH_FIELDS)
+      .select(fields)
       .ilike("descricao", `%${term}%`)
       .order("vezes_usado", { ascending: false })
       .limit(15)
@@ -174,9 +225,9 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
 
     const tokenResults = await Promise.all(
       dbSearchTokens.map((token) =>
-        supabase
+        db
           .from("alimentos_favoritos")
-          .select(FOOD_SEARCH_FIELDS)
+          .select(fields)
           .ilike("descricao", `%${token}%`)
           .order("vezes_usado", { ascending: false })
           .limit(20)
@@ -186,14 +237,14 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
     const byId = new Map<number, FoodSearchResult>()
 
     for (const row of directResult.data ?? []) {
-      const food = mapFoodSearchRow(row)
+      const food = mapFoodSearchRow(row as unknown as Record<string, unknown>)
       byId.set(food.id, food)
     }
 
     for (const result of tokenResults) {
       if (result.error) throw result.error
       for (const row of result.data ?? []) {
-        const food = mapFoodSearchRow(row)
+        const food = mapFoodSearchRow(row as unknown as Record<string, unknown>)
         byId.set(food.id, food)
       }
     }
@@ -216,7 +267,18 @@ export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
         return a.descricao.localeCompare(b.descricao, "pt-BR")
       })
       .slice(0, 15)
+  }
+
+  try {
+    return await runSearch(FOOD_SEARCH_FIELDS)
   } catch (error) {
+    if (isFoodMetadataSchemaError(error)) {
+      console.warn(
+        "[searchFoods] colunas de IA/combos ainda não existem no banco; usando busca legada."
+      )
+      return runSearch(LEGACY_FOOD_SEARCH_FIELDS)
+    }
+
     console.error("[searchFoods]", error)
     return []
   }
@@ -226,19 +288,33 @@ export async function getFrequentFoods(limit = 8): Promise<FoodSearchResult[]> {
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 12)
   const supabase = await createServerSupabase()
   if (!supabase) return []
+  const db = supabase
 
-  try {
-    const { data, error } = await supabase
+  async function runQuery(fields: string) {
+    const { data, error } = await db
       .from("alimentos_favoritos")
-      .select(FOOD_SEARCH_FIELDS)
+      .select(fields)
       .order("vezes_usado", { ascending: false })
       .order("descricao", { ascending: true })
       .limit(safeLimit)
 
     if (error) throw error
 
-    return (data ?? []).map((row) => mapFoodSearchRow(row))
+    return (data ?? []).map((row) =>
+      mapFoodSearchRow(row as unknown as Record<string, unknown>)
+    )
+  }
+
+  try {
+    return await runQuery(FOOD_SEARCH_FIELDS)
   } catch (error) {
+    if (isFoodMetadataSchemaError(error)) {
+      console.warn(
+        "[getFrequentFoods] colunas de IA/combos ainda não existem no banco; usando atalhos legados."
+      )
+      return runQuery(LEGACY_FOOD_SEARCH_FIELDS)
+    }
+
     console.error("[getFrequentFoods]", error)
     return []
   }
@@ -252,18 +328,19 @@ export async function getFoodShortcuts(
   const safeComboLimit = Math.min(Math.max(1, Math.floor(comboLimit)), 12)
   const supabase = await createServerSupabase()
   if (!supabase) return []
+  const db = supabase
 
-  try {
+  async function runQuery(fields: string) {
     const [frequentResult, comboResult] = await Promise.all([
-      supabase
+      db
         .from("alimentos_favoritos")
-        .select(FOOD_SEARCH_FIELDS)
+        .select(fields)
         .order("vezes_usado", { ascending: false })
         .order("descricao", { ascending: true })
         .limit(safeLimit),
-      supabase
+      db
         .from("alimentos_favoritos")
-        .select(FOOD_SEARCH_FIELDS)
+        .select(fields)
         .ilike("categoria", "combo")
         .order("descricao", { ascending: true })
         .limit(safeComboLimit),
@@ -274,12 +351,23 @@ export async function getFoodShortcuts(
 
     const byId = new Map<number, FoodSearchResult>()
     for (const row of [...(comboResult.data ?? []), ...(frequentResult.data ?? [])]) {
-      const food = mapFoodSearchRow(row)
+      const food = mapFoodSearchRow(row as unknown as Record<string, unknown>)
       byId.set(food.id, food)
     }
 
     return Array.from(byId.values())
+  }
+
+  try {
+    return await runQuery(FOOD_SEARCH_FIELDS)
   } catch (error) {
+    if (isFoodMetadataSchemaError(error)) {
+      console.warn(
+        "[getFoodShortcuts] colunas de IA/combos ainda não existem no banco; usando atalhos legados."
+      )
+      return runQuery(LEGACY_FOOD_SEARCH_FIELDS)
+    }
+
     console.error("[getFoodShortcuts]", error)
     return []
   }
@@ -300,7 +388,7 @@ export async function createFood(data: FoodFormInput) {
   }
 
   try {
-    const { data, error } = await auth.supabase
+    let result = await auth.supabase
       .from("alimentos_favoritos")
       .insert({
         ...validation.value,
@@ -310,12 +398,27 @@ export async function createFood(data: FoodFormInput) {
       .select(FOOD_SEARCH_FIELDS)
       .single()
 
-    if (error) throw error
+    if (result.error && isFoodMetadataSchemaError(result.error)) {
+      console.warn(
+        "[createFood] colunas de IA/combos ainda não existem no banco; salvando alimento em modo legado."
+      )
+      result = await auth.supabase
+        .from("alimentos_favoritos")
+        .insert({
+          ...toLegacyFoodPayload(validation.value),
+          user_id: auth.user.id,
+          vezes_usado: 0,
+        })
+        .select(LEGACY_FOOD_SEARCH_FIELDS)
+        .single()
+    }
+
+    if (result.error) throw result.error
 
     revalidateFoodPaths()
     return {
       success: true as const,
-      food: mapFoodSearchRow(data as Record<string, unknown>),
+      food: mapFoodSearchRow(result.data as Record<string, unknown>),
     }
   } catch (error) {
     console.error("[createFood]", error)
@@ -348,13 +451,24 @@ export async function updateFood(id: number, data: FoodFormInput) {
   }
 
   try {
-    const { error } = await auth.supabase
+    let result = await auth.supabase
       .from("alimentos_favoritos")
       .update(validation.value)
       .eq("id", id)
       .eq("user_id", auth.user.id)
 
-    if (error) throw error
+    if (result.error && isFoodMetadataSchemaError(result.error)) {
+      console.warn(
+        "[updateFood] colunas de IA/combos ainda não existem no banco; atualizando alimento em modo legado."
+      )
+      result = await auth.supabase
+        .from("alimentos_favoritos")
+        .update(toLegacyFoodPayload(validation.value))
+        .eq("id", id)
+        .eq("user_id", auth.user.id)
+    }
+
+    if (result.error) throw result.error
 
     revalidateFoodPaths()
     return { success: true as const }

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
+import { NeonCard } from "@/components/ui/neon-card"
 
 export function BiometrySectionSkeleton() {
   return (
@@ -7,11 +8,11 @@ export function BiometrySectionSkeleton() {
         <Skeleton className="h-7 w-28" />
         <Skeleton className="h-4 w-48" />
       </div>
-      <div className="rounded-xl border border-border bg-card p-4">
+      <NeonCard accent="blue" className="p-4">
         <Skeleton className="mb-2 h-4 w-28" />
         <Skeleton className="mb-2 h-8 w-24" />
         <Skeleton className="h-4 w-40" />
-      </div>
+      </NeonCard>
     </section>
   )
 }
